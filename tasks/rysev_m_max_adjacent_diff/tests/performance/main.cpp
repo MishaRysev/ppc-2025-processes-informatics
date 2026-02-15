@@ -33,8 +33,8 @@ TEST_P(MaxAdjacentDiffPerfTest, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
-const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, RysevMMaxAdjacentDiffMPI, RysevMMaxAdjacentDiffSEQ>(PPC_SETTINGS_example_processes);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, RysevMMaxAdjacentDiffMPI, RysevMMaxAdjacentDiffSEQ>(
+    PPC_SETTINGS_example_processes);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 

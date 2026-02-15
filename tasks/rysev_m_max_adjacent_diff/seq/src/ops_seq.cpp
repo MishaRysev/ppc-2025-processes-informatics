@@ -26,14 +26,14 @@ bool RysevMMaxAdjacentDiffSEQ::PreProcessingImpl() {
 }
 
 bool RysevMMaxAdjacentDiffSEQ::RunImpl() {
-  const auto& input = GetInput();
+  const auto &input = GetInput();
   if (input.size() < 2) {
     return false;
   }
 
   int max_diff = -1;
   std::pair<int, int> result = std::make_pair(input[0], input[1]);
-  
+
   for (size_t i = 0; i < input.size() - 1; ++i) {
     int diff = std::abs(input[i + 1] - input[i]);
     if (diff > max_diff) {
