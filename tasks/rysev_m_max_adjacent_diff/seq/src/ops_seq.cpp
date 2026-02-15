@@ -1,11 +1,11 @@
-#include "example_processes/seq/include/ops_seq.hpp"
+#include "rysev_m_max_adjacent_diff/seq/include/ops_seq.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <utility>
 #include <vector>
 
-#include "example_processes/common/include/common.hpp"
+#include "rysev_m_max_adjacent_diff/common/include/common.hpp"
 #include "util/include/util.hpp"
 
 namespace rysev_m_max_adjacent_diff {

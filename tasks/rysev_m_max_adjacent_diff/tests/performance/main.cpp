@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "example_processes/common/include/common.hpp"
-#include "example_processes/mpi/include/ops_mpi.hpp"
-#include "example_processes/seq/include/ops_seq.hpp"
+#include "rysev_m_max_adjacent_diff/common/include/common.hpp"
+#include "rysev_m_max_adjacent_diff/mpi/include/ops_mpi.hpp"
+#include "rysev_m_max_adjacent_diff/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace rysev_m_max_adjacent_diff {

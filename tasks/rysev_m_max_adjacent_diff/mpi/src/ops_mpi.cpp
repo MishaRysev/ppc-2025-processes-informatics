@@ -1,4 +1,4 @@
-#include "example_processes/mpi/include/ops_mpi.hpp"
+#include "rysev_m_max_adjacent_diff/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
 
@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "example_processes/common/include/common.hpp"
+#include "rysev_m_max_adjacent_diff/common/include/common.hpp"
 #include "util/include/util.hpp"
 
 namespace rysev_m_max_adjacent_diff {
