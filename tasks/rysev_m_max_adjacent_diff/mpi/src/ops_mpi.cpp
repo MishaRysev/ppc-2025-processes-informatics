@@ -58,7 +58,6 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
       offset += send_counts[i];
     }
   }
-
   MPI_Scatterv(input.data(), send_counts.data(), displs.data(), MPI_INT, local_data.data(), local_size, MPI_INT, 0,
                MPI_COMM_WORLD);
 
@@ -78,18 +77,19 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
     }
   }
 
-  int prev_last = 0;
-
   if (rank > 0) {
+    int prev_last;
     MPI_Recv(&prev_last, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    int diff = std::abs(local_data[0] - prev_last);
-    if (diff > local_max_diff) {
-      local_max_diff = diff;
-      local_result = std::make_pair(prev_last, local_data[0]);
+    if (local_size > 0) {
+      int diff = std::abs(local_data[0] - prev_last);
+      if (diff > local_max_diff) {
+        local_max_diff = diff;
+        local_result = std::make_pair(prev_last, local_data[0]);
+      }
     }
   }
 
-  if (rank < size - 1) {
+  if (rank < size - 1 && local_size > 0) {
     MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
   }
 
@@ -97,17 +97,18 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
     int diff;
     int first;
     int second;
-    int rank;
   };
 
-  Result local = {local_max_diff, local_result.first, local_result.second, rank};
+  Result local_res = {local_max_diff, local_result.first, local_result.second};
   std::vector<Result> all_results;
 
   if (rank == 0) {
     all_results.resize(size);
   }
 
-  MPI_Gather(&local, sizeof(Result), MPI_BYTE, all_results.data(), sizeof(Result), MPI_BYTE, 0, MPI_COMM_WORLD);
+  MPI_Gather(&local_res, sizeof(Result), MPI_BYTE, all_results.data(), sizeof(Result), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+  int final_result[2] = {0, 0};
 
   if (rank == 0) {
     Result best = all_results[0];
@@ -116,13 +117,12 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
         best = all_results[i];
       }
     }
-    GetOutput() = std::make_pair(best.first, best.second);
+    final_result[0] = best.first;
+    final_result[1] = best.second;
   }
 
-  MPI_Bcast(&local_result, 2, MPI_INT, 0, MPI_COMM_WORLD);
-  if (rank != 0) {
-    GetOutput() = local_result;
-  }
+  MPI_Bcast(final_result, 2, MPI_INT, 0, MPI_COMM_WORLD);
+  GetOutput() = std::make_pair(final_result[0], final_result[1]);
 
   return true;
 }
