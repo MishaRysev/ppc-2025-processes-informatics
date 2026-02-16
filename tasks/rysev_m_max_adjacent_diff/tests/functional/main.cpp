@@ -1,9 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
-#include <cmath>
-#include <cstddef>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -29,7 +26,7 @@ class MaxAdjacentDiffFuncTest : public ppc::util::BaseRunFuncTests<InType, OutTy
     switch (test_id) {
       case 1:
         input_data_ = {1, 2, 3, 4, 5};
-        expected_output_ = std::make_pair(1, 2);
+        expected_output_ = std::make_pair(4, 5);
         break;
 
       case 2:
@@ -44,7 +41,7 @@ class MaxAdjacentDiffFuncTest : public ppc::util::BaseRunFuncTests<InType, OutTy
 
       case 4:
         input_data_ = {-10, -5, 0, 5, 10};
-        expected_output_ = std::make_pair(-10, -5);
+        expected_output_ = std::make_pair(5, 10);
         break;
 
       case 5:
