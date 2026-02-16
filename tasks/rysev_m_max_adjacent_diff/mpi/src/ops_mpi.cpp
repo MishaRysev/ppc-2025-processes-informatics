@@ -67,7 +67,7 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
   DiffPair global_best = {-1, 0, 0};
 
   MPI_Op max_diff_op;
-  MPI_Op_create([](void *invec, void *inoutvec, int *len) {
+  MPI_Op_create([](void *invec, void *inoutvec, int *len, MPI_Datatype *) {
     DiffPair *in = static_cast<DiffPair *>(invec);
     DiffPair *inout = static_cast<DiffPair *>(inoutvec);
     for (int i = 0; i < *len; i++) {
