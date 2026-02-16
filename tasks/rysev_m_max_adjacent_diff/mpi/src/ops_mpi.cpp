@@ -41,23 +41,6 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
   int vec_size = n;
   MPI_Bcast(&vec_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (world_size == 1 || n < 2) {
-    if (rank == 0) {
-      int max_diff = -1;
-      std::pair<int, int> result = std::make_pair(input[0], input[1]);
-
-      for (size_t i = 0; i < n - 1; ++i) {
-        int diff = std::abs(input[i + 1] - input[i]);
-        if (diff > max_diff) {
-          max_diff = diff;
-          result = std::make_pair(input[i], input[i + 1]);
-        }
-      }
-      GetOutput() = result;
-    }
-    return true;
-  }
-
   int base_size = vec_size / world_size;
   int remainder = vec_size % world_size;
 
@@ -94,20 +77,18 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
     }
   }
 
-  if (local_size > 0) {
-    if (rank > 0) {
-      int prev_last;
-      MPI_Recv(&prev_last, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  int prev_last = 0;
 
-      int diff = std::abs(local_data[0] - prev_last);
-      if (diff > local_max_diff) {
-        local_max_diff = diff;
-        local_result = std::make_pair(prev_last, local_data[0]);
-      }
-    }
+  if (rank < world_size - 1) {
+    MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+  }
 
-    if (rank < world_size - 1) {
-      MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+  if (rank > 0) {
+    MPI_Recv(&prev_last, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    int diff = std::abs(local_data[0] - prev_last);
+    if (diff > local_max_diff) {
+      local_max_diff = diff;
+      local_result = std::make_pair(prev_last, local_data[0]);
     }
   }
 
