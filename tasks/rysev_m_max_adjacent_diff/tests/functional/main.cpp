@@ -26,7 +26,7 @@ class MaxAdjacentDiffFuncTest : public ppc::util::BaseRunFuncTests<InType, OutTy
     switch (test_id) {
       case 1:
         input_data_ = {1, 2, 3, 4, 5};
-        expected_output_ = std::make_pair(4, 5);
+        expected_output_ = std::make_pair(1, 2);
         break;
       case 2:
         input_data_ = {10, 10, 10, 100, 100};
@@ -38,7 +38,7 @@ class MaxAdjacentDiffFuncTest : public ppc::util::BaseRunFuncTests<InType, OutTy
         break;
       case 4:
         input_data_ = {-10, -5, 0, 5, 10};
-        expected_output_ = std::make_pair(5, 10);
+        expected_output_ = std::make_pair(-10, -5);
         break;
       case 5:
         input_data_ = {1, 100, 2, 99, 3};

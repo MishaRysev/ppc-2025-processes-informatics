@@ -11,6 +11,13 @@
 
 namespace rysev_m_max_adjacent_diff {
 
+struct DiffPair {
+  int diff;
+  int first;
+  int second;
+  int rank;
+};
+
 RysevMMaxAdjacentDiffMPI::RysevMMaxAdjacentDiffMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -27,10 +34,9 @@ bool RysevMMaxAdjacentDiffMPI::PreProcessingImpl() {
 }
 
 bool RysevMMaxAdjacentDiffMPI::RunImpl() {
-  int rank = 0;
-  int world_size = 0;
+  int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   const auto &input = GetInput();
   size_t n = input.size();
@@ -39,25 +45,74 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
     return false;
   }
 
-  std::pair<int, int> result = std::make_pair(0, 0);
+  int vec_size = n;
+  MPI_Bcast(&vec_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  std::vector<int> send_counts(size, 0);
+  std::vector<int> displs(size, 0);
 
   if (rank == 0) {
-    int max_diff = -1;
-    result = std::make_pair(input[0], input[1]);
+    int base_size = vec_size / size;
+    int remainder = vec_size % size;
 
-    for (size_t i = 0; i < n - 1; ++i) {
-      int diff = std::abs(input[i + 1] - input[i]);
-      if (diff > max_diff) {
-        max_diff = diff;
-        result = std::make_pair(input[i], input[i + 1]);
-      }
+    for (int i = 0; i < size; i++) {
+      send_counts[i] = base_size + (i < remainder ? 1 : 0);
+    }
+
+    displs[0] = 0;
+    for (int i = 1; i < size; i++) {
+      displs[i] = displs[i - 1] + send_counts[i - 1];
     }
   }
 
-  int results[2] = {result.first, result.second};
-  MPI_Bcast(results, 2, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(send_counts.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(displs.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
 
-  GetOutput() = std::make_pair(results[0], results[1]);
+  std::vector<int> local_data(send_counts[rank]);
+  MPI_Scatterv(input.data(), send_counts.data(), displs.data(), MPI_INT, local_data.data(), send_counts[rank], MPI_INT,
+               0, MPI_COMM_WORLD);
+
+  DiffPair local_best = {-1, 0, 0, rank};
+
+  for (size_t i = 0; i < local_data.size() - 1; i++) {
+    int diff = std::abs(local_data[i + 1] - local_data[i]);
+    if (diff > local_best.diff) {
+      local_best.diff = diff;
+      local_best.first = local_data[i];
+      local_best.second = local_data[i + 1];
+      local_best.rank = rank;
+    }
+  }
+
+  if (rank > 0) {
+    int prev_last;
+    MPI_Recv(&prev_last, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    int diff = std::abs(local_data[0] - prev_last);
+    if (diff > local_best.diff) {
+      local_best.diff = diff;
+      local_best.first = prev_last;
+      local_best.second = local_data[0];
+      local_best.rank = rank;
+    }
+  }
+
+  if (rank < size - 1) {
+    MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+  }
+
+  struct {
+    int diff;
+    int rank;
+    int first;
+    int second;
+  } global_best;
+
+  MPI_Allreduce(&local_best, &global_best, 1, MPI_INT_INT, MPI_MAXLOC, MPI_COMM_WORLD);
+
+  if (global_best.rank == rank) {
+    GetOutput() = std::make_pair(global_best.first, global_best.second);
+  }
 
   return true;
 }
