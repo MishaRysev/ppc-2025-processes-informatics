@@ -101,17 +101,29 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
     MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
   }
 
-  struct {
-    int diff;
-    int rank;
-    int first;
-    int second;
-  } global_best;
+  std::vector<DiffPair> all_results;
+  if (rank == 0) {
+    all_results.resize(size);
+  }
 
-  MPI_Allreduce(&local_best, &global_best, 1, MPI_INT64_T, MPI_MAXLOC, MPI_COMM_WORLD);
+  MPI_Gather(&local_best, sizeof(DiffPair), MPI_BYTE, all_results.data(), sizeof(DiffPair), MPI_BYTE, 0,
+             MPI_COMM_WORLD);
 
-  if (global_best.rank == rank) {
-    GetOutput() = std::make_pair(global_best.first, global_best.second);
+  if (rank == 0) {
+    DiffPair global_best = all_results[0];
+    for (int i = 1; i < size; i++) {
+      if (all_results[i].diff > global_best.diff) {
+        global_best = all_results[i];
+      }
+    }
+
+    int result[2] = {global_best.first, global_best.second};
+    MPI_Bcast(result, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    GetOutput() = std::make_pair(result[0], result[1]);
+  } else {
+    int result[2];
+    MPI_Bcast(result, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    GetOutput() = std::make_pair(result[0], result[1]);
   }
 
   return true;
