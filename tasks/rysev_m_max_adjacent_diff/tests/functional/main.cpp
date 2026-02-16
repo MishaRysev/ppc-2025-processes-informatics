@@ -15,7 +15,7 @@ namespace rysev_m_max_adjacent_diff {
 class MaxAdjacentDiffFuncTest : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    return "test_" + std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
+    return "test_" + std::to_string(std::get<0>(test_param));
   }
 
  protected:
@@ -28,52 +28,42 @@ class MaxAdjacentDiffFuncTest : public ppc::util::BaseRunFuncTests<InType, OutTy
         input_data_ = {1, 2, 3, 4, 5};
         expected_output_ = std::make_pair(4, 5);
         break;
-
       case 2:
         input_data_ = {10, 10, 10, 100, 100};
         expected_output_ = std::make_pair(10, 100);
         break;
-
       case 3:
         input_data_ = {100, 90, 80, 70, 60};
         expected_output_ = std::make_pair(100, 90);
         break;
-
       case 4:
         input_data_ = {-10, -5, 0, 5, 10};
         expected_output_ = std::make_pair(5, 10);
         break;
-
       case 5:
         input_data_ = {1, 100, 2, 99, 3};
         expected_output_ = std::make_pair(1, 100);
         break;
-
       case 6:
         input_data_ = {42, 100};
         expected_output_ = std::make_pair(42, 100);
         break;
-
       case 7:
         input_data_ = {5, 5, 5, 5, 5};
         expected_output_ = std::make_pair(5, 5);
         break;
-
       case 8:
         input_data_ = {1, 2, 3, 100, 4, 5, 6};
         expected_output_ = std::make_pair(3, 100);
         break;
-
       case 9:
         input_data_ = {10, 20, 30, 40, 50, 1000};
         expected_output_ = std::make_pair(50, 1000);
         break;
-
       case 10:
         input_data_ = {1, 100, 2, 3, 100, 4};
         expected_output_ = std::make_pair(1, 100);
         break;
-
       default:
         input_data_ = {0, 0};
         expected_output_ = std::make_pair(0, 0);
@@ -100,11 +90,10 @@ TEST_P(MaxAdjacentDiffFuncTest, VectorMaxAdjacentDiff) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 10> kTestParams = {std::make_tuple(1, "increasing"),  std::make_tuple(2, "single_jump"),
-                                              std::make_tuple(3, "decreasing"),  std::make_tuple(4, "negative"),
-                                              std::make_tuple(5, "alternating"), std::make_tuple(6, "minimal"),
-                                              std::make_tuple(7, "constant"),    std::make_tuple(8, "max_in_middle"),
-                                              std::make_tuple(9, "max_at_end"),  std::make_tuple(10, "multiple_max")};
+const std::array<TestType, 10> kTestParams = {std::make_tuple(1, ""), std::make_tuple(2, ""), std::make_tuple(3, ""),
+                                              std::make_tuple(4, ""), std::make_tuple(5, ""), std::make_tuple(6, ""),
+                                              std::make_tuple(7, ""), std::make_tuple(8, ""), std::make_tuple(9, ""),
+                                              std::make_tuple(10, "")};
 
 const auto kTestTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<RysevMMaxAdjacentDiffMPI, InType>(kTestParams, PPC_SETTINGS_example_processes),

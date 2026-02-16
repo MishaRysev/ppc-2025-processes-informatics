@@ -16,7 +16,7 @@ class MaxAdjacentDiffPerfTest : public ppc::util::BaseRunPerfTests<InType, OutTy
   void SetUp() override {
     input_data_.resize(kVectorSize_);
     for (int i = 0; i < kVectorSize_; ++i) {
-      input_data_[i] = i * 2;
+      input_data_[i] = i;
     }
   }
 

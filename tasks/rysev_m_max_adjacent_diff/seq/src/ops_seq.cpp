@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "rysev_m_max_adjacent_diff/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace rysev_m_max_adjacent_diff {
 
@@ -17,7 +16,7 @@ RysevMMaxAdjacentDiffSEQ::RysevMMaxAdjacentDiffSEQ(const InType &in) {
 }
 
 bool RysevMMaxAdjacentDiffSEQ::ValidationImpl() {
-  return (GetInput().size() >= 2);
+  return GetInput().size() >= 2;
 }
 
 bool RysevMMaxAdjacentDiffSEQ::PreProcessingImpl() {
