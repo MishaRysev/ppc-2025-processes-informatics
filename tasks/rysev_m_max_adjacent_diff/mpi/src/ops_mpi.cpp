@@ -79,7 +79,6 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
   }
 
   int prev_last = 0;
-  int next_first = 0;
 
   if (rank > 0) {
     MPI_Recv(&prev_last, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
