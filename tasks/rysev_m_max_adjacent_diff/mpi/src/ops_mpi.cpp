@@ -108,7 +108,7 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
     int second;
   } global_best;
 
-  MPI_Allreduce(&local_best, &global_best, 1, MPI_INT_INT, MPI_MAXLOC, MPI_COMM_WORLD);
+  MPI_Allreduce(&local_best, &global_best, 1, MPI_INT64_T, MPI_MAXLOC, MPI_COMM_WORLD);
 
   if (global_best.rank == rank) {
     GetOutput() = std::make_pair(global_best.first, global_best.second);
