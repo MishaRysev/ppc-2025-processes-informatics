@@ -80,15 +80,22 @@ bool RysevMMaxAdjacentDiffMPI::RunImpl() {
   int prev_last = 0;
 
   if (rank < world_size - 1) {
-    MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    if (local_size > 0) {
+      MPI_Send(&local_data.back(), 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    } else {
+      int dummy = 0;
+      MPI_Send(&dummy, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    }
   }
 
   if (rank > 0) {
     MPI_Recv(&prev_last, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    int diff = std::abs(local_data[0] - prev_last);
-    if (diff > local_max_diff) {
-      local_max_diff = diff;
-      local_result = std::make_pair(prev_last, local_data[0]);
+    if (local_size > 0) {
+      int diff = std::abs(local_data[0] - prev_last);
+      if (diff > local_max_diff) {
+        local_max_diff = diff;
+        local_result = std::make_pair(prev_last, local_data[0]);
+      }
     }
   }
 
