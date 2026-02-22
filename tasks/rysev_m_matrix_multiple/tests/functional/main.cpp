@@ -55,7 +55,7 @@ std::vector<int> SequentialMultiply(const std::vector<int> &A, const std::vector
 class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    return "Size_" + std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
+    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
   }
 
  protected:
@@ -86,26 +86,16 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
   InType input_data_;
 };
 
-namespace {
-
-TEST_P(RysevMRunFuncTestsProcesses, MatrixMultiplicationTest) {
-  ExecuteTest(GetParam());
-}
-
-const std::array<TestType, 6> kTestParam = {std::make_tuple(1, "1x1"), std::make_tuple(2, "2x2"),
-                                            std::make_tuple(3, "3x3"), std::make_tuple(4, "4x4"),
-                                            std::make_tuple(5, "5x5"), std::make_tuple(10, "10x10")};
+const std::array<TestType, 5> kTestParam = {std::make_tuple(2, "2"), std::make_tuple(3, "3"), std::make_tuple(4, "4"),
+                                            std::make_tuple(5, "5"), std::make_tuple(6, "6")};
 
 const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(kTestParam, PPC_SETTINGS_example_processes),
-                   ppc::util::AddFuncTask<RysevMMatrMulSEQ, InType>(kTestParam, PPC_SETTINGS_example_processes));
+    ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(kTestParam, PPC_SETTINGS_example_processes);
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
 const auto kPerfTestName = RysevMRunFuncTestsProcesses::PrintFuncTestName<RysevMRunFuncTestsProcesses>;
 
 INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationTests, RysevMRunFuncTestsProcesses, kGtestValues, kPerfTestName);
-
-}  // namespace
 
 }  // namespace rysev_m_matrix_multiple

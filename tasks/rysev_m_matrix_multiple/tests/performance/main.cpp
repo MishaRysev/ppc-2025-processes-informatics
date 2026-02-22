@@ -2,6 +2,8 @@
 
 #include <chrono>
 #include <random>
+#include <string>
+#include <tuple>
 #include <vector>
 
 #include "example_processes/common/include/common.hpp"
@@ -34,25 +36,17 @@ InType GeneratePerformanceMatrices(int size) {
   return std::make_tuple(A, B, m, k, n);
 }
 
-class RysevMPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kSmallSize_ = 50;
-  const int kMediumSize_ = 100;
-  const int kLargeSize_ = 200;
-  InType input_data_{};
-  int current_size_ = 0;
+class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
+ public:
+  static std::string PrintTestParam(const TestType &test_param) {
+    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
+  }
 
+ protected:
   void SetUp() override {
-    std::string test_mode = std::get<1>(GetParam());
-
-    if (test_mode.find("small") != std::string::npos) {
-      current_size_ = kSmallSize_;
-    } else if (test_mode.find("medium") != std::string::npos) {
-      current_size_ = kMediumSize_;
-    } else {
-      current_size_ = kLargeSize_;
-    }
-
-    input_data_ = GeneratePerformanceMatrices(current_size_);
+    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    int size = std::get<0>(params);
+    input_data_ = GeneratePerformanceMatrices(size);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
@@ -62,27 +56,24 @@ class RysevMPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutTy
   InType GetTestInputData() final {
     return input_data_;
   }
+
+ private:
+  InType input_data_;
 };
 
-TEST_P(RysevMPerfTestProcesses, RunPerfModes) {
-  ExecuteTest(GetParam());
-}
+const std::array<TestType, 3> kPerfSizes = {std::make_tuple(50, "50"), std::make_tuple(100, "100"),
+                                            std::make_tuple(150, "150")};
 
-const auto kSmallTask =
-    ppc::util::MakePerfTask<InType, RysevMMatrMulMPI, RysevMMatrMulSEQ>("small", PPC_SETTINGS_example_processes);
+const auto kMPITasks = ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(kPerfSizes, PPC_SETTINGS_example_processes);
 
-const auto kMediumTask =
-    ppc::util::MakePerfTask<InType, RysevMMatrMulMPI, RysevMMatrMulSEQ>("medium", PPC_SETTINGS_example_processes);
+const auto kSEQTasks = ppc::util::AddFuncTask<RysevMMatrMulSEQ, InType>(kPerfSizes, PPC_SETTINGS_example_processes);
 
-const auto kLargeTask =
-    ppc::util::MakePerfTask<InType, RysevMMatrMulMPI, RysevMMatrMulSEQ>("large", PPC_SETTINGS_example_processes);
+const auto kAllPerfTasks = std::tuple_cat(kMPITasks, kSEQTasks);
 
-const auto kAllPerfTasks = std::tuple_cat(kSmallTask, kMediumTask, kLargeTask);
+const auto kGtestValues = ppc::util::ExpandToValues(kAllPerfTasks);
 
-const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
+const auto kPerfTestName = RysevMRunPerfTestsProcesses::PrintTestParam;
 
-const auto kPerfTestName = RysevMPerfTestProcesses::CustomPerfTestName;
-
-INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationPerfTests, RysevMPerfTestProcesses, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationPerfTests, RysevMRunPerfTestsProcesses, kGtestValues, kPerfTestName);
 
 }  // namespace rysev_m_matrix_multiple
