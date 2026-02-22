@@ -9,7 +9,6 @@
 #include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
 #include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
-#include "util/include/util.hpp"
 
 namespace rysev_m_matrix_multiple {
 
@@ -31,50 +30,48 @@ InType GeneratePerfMatrices(int size) {
 }
 }  // namespace
 
-class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
- public:
-  static std::string PrintTestParam(const TestType &test_param) {
-    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
-  }
-
+class RysevMRunPerfTestsProcesses : public ::testing::TestWithParam<int> {
  protected:
   void SetUp() override {
-    ppc::util::BaseRunPerfTests<InType, OutType>::SetUp();
-
-    auto params = this->GetParam();
-
-    auto test_params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(params);
-
-    int size = std::get<0>(test_params);
-
+    int size = GetParam();
     input_data_ = GeneratePerfMatrices(size);
+
+    mpi_task_ = std::make_shared<RysevMMatrMulMPI>(input_data_);
+    seq_task_ = std::make_shared<RysevMMatrMulSEQ>(input_data_);
   }
 
-  bool CheckTestOutputData(OutType &output_data) override {
-    return !output_data.empty();
-  }
-
-  InType GetTestInputData() override {
-    return input_data_;
-  }
-
- private:
   InType input_data_;
+  std::shared_ptr<RysevMMatrMulMPI> mpi_task_;
+  std::shared_ptr<RysevMMatrMulSEQ> seq_task_;
 };
 
-const std::array<TestType, 3> kPerfSizes = {std::make_tuple(50, "50"), std::make_tuple(100, "100"),
-                                            std::make_tuple(150, "150")};
+TEST_P(RysevMRunPerfTestsProcesses, MPI) {
+  ASSERT_TRUE(mpi_task_->Validation());
 
-const auto kMPITasks = ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(kPerfSizes, PPC_SETTINGS_example_processes);
+  ASSERT_TRUE(mpi_task_->PreProcessing());
 
-const auto kSEQTasks = ppc::util::AddFuncTask<RysevMMatrMulSEQ, InType>(kPerfSizes, PPC_SETTINGS_example_processes);
+  ASSERT_TRUE(mpi_task_->Run());
 
-const auto kAllPerfTasks = std::tuple_cat(kMPITasks, kSEQTasks);
+  ASSERT_TRUE(mpi_task_->PostProcessing());
 
-const auto kGtestValues = ppc::util::ExpandToValues(kAllPerfTasks);
+  auto output = mpi_task_->GetOutput();
+  ASSERT_FALSE(output.empty());
+}
 
-const auto kPerfTestName = RysevMRunPerfTestsProcesses::PrintTestParam;
+TEST_P(RysevMRunPerfTestsProcesses, SEQ) {
+  ASSERT_TRUE(seq_task_->Validation());
 
-INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationPerfTests, RysevMRunPerfTestsProcesses, kGtestValues, kPerfTestName);
+  ASSERT_TRUE(seq_task_->PreProcessing());
+
+  ASSERT_TRUE(seq_task_->Run());
+
+  ASSERT_TRUE(seq_task_->PostProcessing());
+
+  auto output = seq_task_->GetOutput();
+  ASSERT_FALSE(output.empty());
+}
+
+INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationPerfTests, RysevMRunPerfTestsProcesses, ::testing::Values(50, 100, 150),
+                         [](const testing::TestParamInfo<int> &info) { return "Size_" + std::to_string(info.param); });
 
 }  // namespace rysev_m_matrix_multiple
