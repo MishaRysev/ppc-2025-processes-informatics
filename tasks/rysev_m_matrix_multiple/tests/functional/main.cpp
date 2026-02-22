@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
+#include <random>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -14,6 +14,22 @@
 
 namespace rysev_m_matrix_multiple {
 
+InType GenerateMatrices(int size) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(1, 10);
+
+  std::vector<int> A(size * size);
+  std::vector<int> B(size * size);
+
+  for (int i = 0; i < size * size; ++i) {
+    A[i] = dis(gen);
+    B[i] = dis(gen);
+  }
+
+  return std::make_tuple(A, B, size);
+}
+
 class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
@@ -23,11 +39,12 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
  protected:
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = std::get<0>(params);
+    int size = std::get<0>(params);
+    input_data_ = GenerateMatrices(size);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return output_data > 0;
+    return !output_data.empty();
   }
 
   InType GetTestInputData() final {
@@ -35,7 +52,7 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
   }
 
  private:
-  InType input_data_ = 0;
+  InType input_data_;
 };
 
 namespace {

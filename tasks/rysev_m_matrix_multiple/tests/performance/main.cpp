@@ -11,6 +11,22 @@
 
 namespace rysev_m_matrix_multiple {
 
+InType GeneratePerfMatrices(int size) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(1, 5);
+
+  std::vector<int> A(size * size);
+  std::vector<int> B(size * size);
+
+  for (int i = 0; i < size * size; ++i) {
+    A[i] = dis(gen);
+    B[i] = dis(gen);
+  }
+
+  return std::make_tuple(A, B, size);
+}
+
 class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
@@ -20,11 +36,12 @@ class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, O
  protected:
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = std::get<0>(params);
+    int size = std::get<0>(params);
+    input_data_ = GeneratePerfMatrices(size);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return output_data > 0;
+    return !output_data.empty();
   }
 
   InType GetTestInputData() final {
@@ -32,7 +49,7 @@ class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, O
   }
 
  private:
-  InType input_data_ = 0;
+  InType input_data_;
 };
 
 const std::array<TestType, 3> kPerfSizes = {std::make_tuple(50, "50"), std::make_tuple(100, "100"),

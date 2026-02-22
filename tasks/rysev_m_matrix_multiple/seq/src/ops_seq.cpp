@@ -1,58 +1,47 @@
 #include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
 
+#include <chrono>
+#include <random>
 #include <vector>
 
 namespace rysev_m_matrix_multiple {
 
 RysevMMatrMulSEQ::RysevMMatrMulSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
-
-  A_ = std::get<0>(in);
-  B_ = std::get<1>(in);
-  sizes_.M = std::get<2>(in);
-  sizes_.K = std::get<3>(in);
-  sizes_.N = std::get<4>(in);
-
   GetInput() = in;
   GetOutput() = std::vector<int>();
 }
 
 bool RysevMMatrMulSEQ::ValidationImpl() {
-  if (sizes_.M <= 0 || sizes_.K <= 0 || sizes_.N <= 0) {
-    return false;
-  }
+  const auto &input = GetInput();
+  const auto &A = std::get<0>(input);
+  const auto &B = std::get<1>(input);
+  int size = std::get<2>(input);
 
-  if (A_.size() != static_cast<size_t>(sizes_.M * sizes_.K)) {
-    return false;
-  }
-
-  if (B_.size() != static_cast<size_t>(sizes_.K * sizes_.N)) {
-    return false;
-  }
-
-  return true;
+  return !A.empty() && !B.empty() && size > 0 && A.size() == static_cast<size_t>(size * size) &&
+         B.size() == static_cast<size_t>(size * size);
 }
 
 bool RysevMMatrMulSEQ::PreProcessingImpl() {
-  C_.assign(sizes_.M * sizes_.N, 0);
+  const auto &input = GetInput();
+  A_ = std::get<0>(input);
+  B_ = std::get<1>(input);
+  size_ = std::get<2>(input);
+
+  C_.assign(size_ * size_, 0);
   return true;
 }
 
 bool RysevMMatrMulSEQ::RunImpl() {
-  if (sizes_.M == 0 || sizes_.K == 0 || sizes_.N == 0) {
-    return false;
-  }
-
-  for (int i = 0; i < sizes_.M; ++i) {
-    for (int j = 0; j < sizes_.N; ++j) {
+  for (int i = 0; i < size_; ++i) {
+    for (int j = 0; j < size_; ++j) {
       int sum = 0;
-      for (int k = 0; k < sizes_.K; ++k) {
-        sum += A_[i * sizes_.K + k] * B_[k * sizes_.N + j];
+      for (int k = 0; k < size_; ++k) {
+        sum += A_[i * size_ + k] * B_[k * size_ + j];
       }
-      C_[i * sizes_.N + j] = sum;
+      C_[i * size_ + j] = sum;
     }
   }
-
   return true;
 }
 

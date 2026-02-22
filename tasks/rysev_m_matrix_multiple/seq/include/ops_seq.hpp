@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "rysev_m_matrix_multiple/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -21,9 +23,8 @@ class RysevMMatrMulSEQ : public BaseTask {
 
   std::vector<int> A_;
   std::vector<int> B_;
-  MatrixSizes sizes_;
-
   std::vector<int> C_;
+  int size_;
 };
 
 }  // namespace rysev_m_matrix_multiple
