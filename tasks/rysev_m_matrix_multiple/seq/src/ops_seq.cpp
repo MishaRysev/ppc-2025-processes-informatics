@@ -1,7 +1,6 @@
 #include "example_processes/seq/include/ops_seq.hpp"
 
-#include <algorithm>
-#include <stdexcept>
+#include <vector>
 
 namespace rysev_m_matrix_multiple {
 
@@ -19,10 +18,6 @@ RysevMMatrMulSEQ::RysevMMatrMulSEQ(const InType &in) {
 }
 
 bool RysevMMatrMulSEQ::ValidationImpl() {
-  if (A_.empty() || B_.empty()) {
-    return false;
-  }
-
   if (sizes_.M <= 0 || sizes_.K <= 0 || sizes_.N <= 0) {
     return false;
   }
