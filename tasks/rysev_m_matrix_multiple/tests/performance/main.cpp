@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <random>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -8,9 +9,11 @@
 #include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
 #include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace rysev_m_matrix_multiple {
 
+namespace {
 InType GeneratePerfMatrices(int size) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -26,8 +29,9 @@ InType GeneratePerfMatrices(int size) {
 
   return std::make_tuple(A, B, size);
 }
+}  // namespace
 
-class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
+class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
@@ -63,7 +67,7 @@ const auto kAllPerfTasks = std::tuple_cat(kMPITasks, kSEQTasks);
 
 const auto kGtestValues = ppc::util::ExpandToValues(kAllPerfTasks);
 
-const auto kPerfTestName = RysevMRunPerfTestsProcesses::CustomPerfTestName;
+const auto kPerfTestName = ppc::util::PrintPerfTestName<RysevMRunPerfTestsProcesses>;
 
 INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationPerfTests, RysevMRunPerfTestsProcesses, kGtestValues, kPerfTestName);
 

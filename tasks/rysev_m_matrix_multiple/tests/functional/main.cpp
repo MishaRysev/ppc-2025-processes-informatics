@@ -14,6 +14,7 @@
 
 namespace rysev_m_matrix_multiple {
 
+namespace {
 InType GenerateMatrices(int size) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -29,6 +30,7 @@ InType GenerateMatrices(int size) {
 
   return std::make_tuple(A, B, size);
 }
+}  // namespace
 
 class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
