@@ -4,9 +4,9 @@
 #include <tuple>
 #include <vector>
 
-#include "example_processes/common/include/common.hpp"
-#include "example_processes/mpi/include/ops_mpi.hpp"
-#include "example_processes/seq/include/ops_seq.hpp"
+#include "rysev_m_matrix_multiple/common/include/common.hpp"
+#include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
+#include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace rysev_m_matrix_multiple {
