@@ -1,128 +1,131 @@
-#include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
+#include "example_processes/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
 
-#include <algorithm>
+#include <chrono>
+#include <numeric>
+#include <random>
 #include <vector>
 
 namespace rysev_m_matrix_multiple {
 
 RysevMMatrMulMPI::RysevMMatrMulMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
-
-  A_ = std::get<0>(in);
-  B_ = std::get<1>(in);
-  sizes_.M = std::get<2>(in);
-  sizes_.K = std::get<3>(in);
-  sizes_.N = std::get<4>(in);
-
   GetInput() = in;
-  GetOutput() = std::vector<int>();
+  GetOutput() = 0;
 }
 
 bool RysevMMatrMulMPI::ValidationImpl() {
-  if (sizes_.M <= 0 || sizes_.K <= 0 || sizes_.N <= 0) {
-    return false;
-  }
-
-  if (A_.size() != static_cast<size_t>(sizes_.M * sizes_.K)) {
-    return false;
-  }
-
-  if (B_.size() != static_cast<size_t>(sizes_.K * sizes_.N)) {
-    return false;
-  }
-
-  return true;
+  return GetInput() > 0;
 }
 
 bool RysevMMatrMulMPI::PreProcessingImpl() {
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+  MPI_Comm_size(MPI_COMM_WORLD, &size_);
 
-  if (rank == 0) {
-    C_.assign(sizes_.M * sizes_.N, 0);
+  if (rank_ == 0) {
+    int size = GetInput();
+
+    data_.M = size;
+    data_.K = size;
+    data_.N = size;
+
+    data_.A.resize(data_.M * data_.K);
+    data_.B.resize(data_.K * data_.N);
+
+    std::mt19937 gen(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    std::uniform_int_distribution<> dis(1, 10);
+
+    for (int i = 0; i < data_.M * data_.K; ++i) {
+      data_.A[i] = dis(gen);
+    }
+
+    for (int i = 0; i < data_.K * data_.N; ++i) {
+      data_.B[i] = dis(gen);
+    }
+
+    C_.assign(data_.M * data_.N, 0);
   }
 
   return true;
 }
 
 bool RysevMMatrMulMPI::RunImpl() {
-  int rank = 0;
-  int size = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int sizes[3] = {data_.M, data_.K, data_.N};
+  MPI_Bcast(sizes, 3, MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (size == 0) {
-    return false;
+  if (rank_ != 0) {
+    data_.M = sizes[0];
+    data_.K = sizes[1];
+    data_.N = sizes[2];
   }
 
-  std::vector<int> send_counts(size, 0);
-  std::vector<int> displs(size, 0);
+  std::vector<int> send_counts(size_);
+  std::vector<int> displs(size_);
 
-  int base_rows = sizes_.M / size;
-  int remainder = sizes_.M % size;
+  int base_rows = data_.M / size_;
+  int remainder = data_.M % size_;
 
-  for (int i = 0; i < size; ++i) {
+  int offset = 0;
+  for (int i = 0; i < size_; ++i) {
     int proc_rows = base_rows + (i < remainder ? 1 : 0);
-    send_counts[i] = proc_rows * sizes_.K;
-    displs[i] = (i == 0) ? 0 : displs[i - 1] + send_counts[i - 1];
+    send_counts[i] = proc_rows * data_.K;
+    displs[i] = offset;
+    offset += send_counts[i];
   }
 
-  local_rows_ = send_counts[rank] / sizes_.K;
-  local_A_.resize(send_counts[rank], 0);
+  local_rows_ = send_counts[rank_] / data_.K;
+  local_A_.resize(send_counts[rank_]);
 
-  MPI_Scatterv(A_.data(), send_counts.data(), displs.data(), MPI_INT, local_A_.data(), send_counts[rank], MPI_INT, 0,
-               MPI_COMM_WORLD);
+  MPI_Scatterv(rank_ == 0 ? data_.A.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
+               send_counts[rank_], MPI_INT, 0, MPI_COMM_WORLD);
 
-  int b_size = sizes_.K * sizes_.N;
-  if (rank != 0) {
-    B_.resize(b_size);
+  if (rank_ != 0) {
+    data_.B.resize(data_.K * data_.N);
   }
-  MPI_Bcast(B_.data(), b_size, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(data_.B.data(), data_.K * data_.N, MPI_INT, 0, MPI_COMM_WORLD);
 
-  local_C_.assign(local_rows_ * sizes_.N, 0);
+  local_C_.assign(local_rows_ * data_.N, 0);
 
   for (int i = 0; i < local_rows_; ++i) {
-    for (int j = 0; j < sizes_.N; ++j) {
+    for (int j = 0; j < data_.N; ++j) {
       int sum = 0;
-      for (int k = 0; k < sizes_.K; ++k) {
-        sum += local_A_[i * sizes_.K + k] * B_[k * sizes_.N + j];
+      for (int k = 0; k < data_.K; ++k) {
+        sum += local_A_[i * data_.K + k] * data_.B[k * data_.N + j];
       }
-      local_C_[i * sizes_.N + j] = sum;
+      local_C_[i * data_.N + j] = sum;
     }
   }
 
-  std::vector<int> recv_counts(size, 0);
-  std::vector<int> recv_displs(size, 0);
+  std::vector<int> recv_counts(size_);
+  std::vector<int> recv_displs(size_);
 
-  for (int i = 0; i < size; ++i) {
-    int proc_rows = send_counts[i] / sizes_.K;
-    recv_counts[i] = proc_rows * sizes_.N;
-    recv_displs[i] = (i == 0) ? 0 : recv_displs[i - 1] + recv_counts[i - 1];
+  offset = 0;
+  for (int i = 0; i < size_; ++i) {
+    int proc_rows = send_counts[i] / data_.K;
+    recv_counts[i] = proc_rows * data_.N;
+    recv_displs[i] = offset;
+    offset += recv_counts[i];
   }
 
-  if (rank == 0) {
-    MPI_Gatherv(local_C_.data(), local_rows_ * sizes_.N, MPI_INT, C_.data(), recv_counts.data(), recv_displs.data(),
+  if (rank_ == 0) {
+    MPI_Gatherv(local_C_.data(), local_rows_ * data_.N, MPI_INT, C_.data(), recv_counts.data(), recv_displs.data(),
                 MPI_INT, 0, MPI_COMM_WORLD);
   } else {
-    MPI_Gatherv(local_C_.data(), local_rows_ * sizes_.N, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0,
-                MPI_COMM_WORLD);
+    MPI_Gatherv(local_C_.data(), local_rows_ * data_.N, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  if (rank == 0) {
-    GetOutput() = C_;
-    return !C_.empty();
+  if (rank_ == 0) {
+    int sum = 0;
+    for (int val : C_) {
+      sum += val;
+    }
+    GetOutput() = sum;
   }
-
   return true;
 }
 
