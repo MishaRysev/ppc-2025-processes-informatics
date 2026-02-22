@@ -17,6 +17,22 @@
 
 namespace rysev_m_matrix_multiple {
 
+namespace {
+std::vector<int> ReferenceMultiply(const std::vector<int> &A, const std::vector<int> &B, int size) {
+  std::vector<int> C(size * size, 0);
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      int sum = 0;
+      for (int k = 0; k < size; ++k) {
+        sum += A[i * size + k] * B[k * size + j];
+      }
+      C[i * size + j] = sum;
+    }
+  }
+  return C;
+}
+}  // namespace
+
 class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
@@ -41,10 +57,12 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
     }
 
     input_data_ = std::make_tuple(A, B, size);
+
+    expected_output_ = ReferenceMultiply(A, B, size);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return !output_data.empty();
+    return output_data == expected_output_;
   }
 
   InType GetTestInputData() final {
@@ -53,6 +71,7 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
 
  private:
   InType input_data_;
+  OutType expected_output_;
 };
 
 namespace {
