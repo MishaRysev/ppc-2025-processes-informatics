@@ -41,6 +41,7 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
  protected:
   void SetUp() override {
     ppc::util::BaseRunFuncTests<InType, OutType, TestType>::SetUp();
+
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int size = std::get<0>(params);
     input_data_ = GenerateMatrices(size);
