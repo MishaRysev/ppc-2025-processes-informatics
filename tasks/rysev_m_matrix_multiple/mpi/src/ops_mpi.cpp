@@ -1,4 +1,4 @@
-#include "example_processes/mpi/include/ops_mpi.hpp"
+#include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
 
