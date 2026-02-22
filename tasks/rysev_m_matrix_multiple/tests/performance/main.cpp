@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <random>
+
 #include "rysev_m_matrix_multiple/common/include/common.hpp"
 #include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
 #include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
