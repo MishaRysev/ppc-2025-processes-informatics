@@ -40,17 +40,17 @@ class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, O
  protected:
   void SetUp() override {
     ppc::util::BaseRunPerfTests<InType, OutType>::SetUp();
-    
+
     auto params = this->GetParam();
-    
+
     auto test_params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(params);
-    
+
     int size = std::get<0>(test_params);
-    
+
     input_data_ = GeneratePerfMatrices(size);
   }
 
-  bool CheckTestOutputData(OutType& output_data) override {
+  bool CheckTestOutputData(OutType &output_data) override {
     return !output_data.empty();
   }
 
@@ -62,17 +62,12 @@ class RysevMRunPerfTestsProcesses : public ppc::util::BaseRunPerfTests<InType, O
   InType input_data_;
 };
 
-const std::array<TestType, 3> kPerfSizes = {
-    std::make_tuple(50, "50"),
-    std::make_tuple(100, "100"),
-    std::make_tuple(150, "150")
-};
+const std::array<TestType, 3> kPerfSizes = {std::make_tuple(50, "50"), std::make_tuple(100, "100"),
+                                            std::make_tuple(150, "150")};
 
-const auto kMPITasks = ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(
-    kPerfSizes, PPC_SETTINGS_example_processes);
+const auto kMPITasks = ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(kPerfSizes, PPC_SETTINGS_example_processes);
 
-const auto kSEQTasks = ppc::util::AddFuncTask<RysevMMatrMulSEQ, InType>(
-    kPerfSizes, PPC_SETTINGS_example_processes);
+const auto kSEQTasks = ppc::util::AddFuncTask<RysevMMatrMulSEQ, InType>(kPerfSizes, PPC_SETTINGS_example_processes);
 
 const auto kAllPerfTasks = std::tuple_cat(kMPITasks, kSEQTasks);
 
@@ -80,11 +75,6 @@ const auto kGtestValues = ppc::util::ExpandToValues(kAllPerfTasks);
 
 const auto kPerfTestName = RysevMRunPerfTestsProcesses::PrintTestParam;
 
-INSTANTIATE_TEST_SUITE_P(
-    MatrixMultiplicationPerfTests,
-    RysevMRunPerfTestsProcesses,
-    kGtestValues,
-    kPerfTestName
-);
+INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationPerfTests, RysevMRunPerfTestsProcesses, kGtestValues, kPerfTestName);
 
 }  // namespace rysev_m_matrix_multiple
