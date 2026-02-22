@@ -1,6 +1,6 @@
 #pragma once
 
-#include "example_processes/common/include/common.hpp"
+#include "rysev_m_matrix_multiple/common/include/common.hpp"
 #include "task/include/task.hpp"
 
 namespace rysev_m_matrix_multiple {

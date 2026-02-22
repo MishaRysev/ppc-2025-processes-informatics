@@ -1,4 +1,4 @@
-#include "example_processes/seq/include/ops_seq.hpp"
+#include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
 
 #include <vector>
 

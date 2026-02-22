@@ -9,9 +9,9 @@
 #include <utility>
 #include <vector>
 
-#include "example_processes/common/include/common.hpp"
-#include "example_processes/mpi/include/ops_mpi.hpp"
-#include "example_processes/seq/include/ops_seq.hpp"
+#include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
+#include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
+#include "rysev_m_matrix_multiplecommon/include/common.hpp"
 #include "util/include/func_test_util.hpp"
 #include "util/include/util.hpp"
 
