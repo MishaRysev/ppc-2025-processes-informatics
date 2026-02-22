@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <numeric>
 #include <random>
 #include <string>
 #include <tuple>
@@ -9,83 +12,68 @@
 #include "rysev_m_matrix_multiple/common/include/common.hpp"
 #include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
 #include "rysev_m_matrix_multiple/seq/include/ops_seq.hpp"
+#include "util/include/func_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace rysev_m_matrix_multiple {
 
-namespace {
-InType GenerateMatrices(int size) {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis(1, 10);
-
-  std::vector<int> A(size * size);
-  std::vector<int> B(size * size);
-
-  for (int i = 0; i < size * size; ++i) {
-    A[i] = dis(gen);
-    B[i] = dis(gen);
+class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+ public:
+  static std::string PrintTestParam(const TestType &test_param) {
+    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
   }
 
-  return std::make_tuple(A, B, size);
-}
-
-std::vector<int> MultiplyMatrices(const std::vector<int> &A, const std::vector<int> &B, int size) {
-  std::vector<int> C(size * size, 0);
-  for (int i = 0; i < size; ++i) {
-    for (int j = 0; j < size; ++j) {
-      int sum = 0;
-      for (int k = 0; k < size; ++k) {
-        sum += A[i * size + k] * B[k * size + j];
-      }
-      C[i * size + j] = sum;
-    }
-  }
-  return C;
-}
-}  // namespace
-
-class RysevMMatrixMulTest : public ::testing::TestWithParam<int> {
  protected:
   void SetUp() override {
-    size_ = GetParam();
-    input_data_ = GenerateMatrices(size_);
+    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    int size = std::get<0>(params);
 
-    mpi_task_ = std::make_shared<RysevMMatrMulMPI>(input_data_);
-    seq_task_ = std::make_shared<RysevMMatrMulSEQ>(input_data_);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1, 10);
 
-    const auto &A = std::get<0>(input_data_);
-    const auto &B = std::get<1>(input_data_);
-    expected_ = MultiplyMatrices(A, B, size_);
+    std::vector<int> A(size * size);
+    std::vector<int> B(size * size);
+
+    for (int i = 0; i < size * size; ++i) {
+      A[i] = dis(gen);
+      B[i] = dis(gen);
+    }
+
+    input_data_ = std::make_tuple(A, B, size);
   }
 
-  int size_;
+  bool CheckTestOutputData(OutType &output_data) final {
+    return !output_data.empty();
+  }
+
+  InType GetTestInputData() final {
+    return input_data_;
+  }
+
+ private:
   InType input_data_;
-  std::vector<int> expected_;
-  std::shared_ptr<RysevMMatrMulMPI> mpi_task_;
-  std::shared_ptr<RysevMMatrMulSEQ> seq_task_;
 };
 
-TEST_P(RysevMMatrixMulTest, TestMPI) {
-  ASSERT_TRUE(mpi_task_->Validation());
-  ASSERT_TRUE(mpi_task_->PreProcessing());
-  ASSERT_TRUE(mpi_task_->Run());
-  ASSERT_TRUE(mpi_task_->PostProcessing());
+namespace {
 
-  auto output = mpi_task_->GetOutput();
-  ASSERT_EQ(output, expected_);
+TEST_P(RysevMRunFuncTestsProcesses, MatmulFromGen) {
+  ExecuteTest(GetParam());
 }
 
-TEST_P(RysevMMatrixMulTest, TestSEQ) {
-  ASSERT_TRUE(seq_task_->Validation());
-  ASSERT_TRUE(seq_task_->PreProcessing());
-  ASSERT_TRUE(seq_task_->Run());
-  ASSERT_TRUE(seq_task_->PostProcessing());
+const std::array<TestType, 4> kTestParam = {std::make_tuple(2, "2"), std::make_tuple(3, "3"), std::make_tuple(4, "4"),
+                                            std::make_tuple(5, "5")};
 
-  auto output = seq_task_->GetOutput();
-  ASSERT_EQ(output, expected_);
-}
+const auto kTestTasksList =
+    std::tuple_cat(ppc::util::AddFuncTask<RysevMMatrMulMPI, InType>(kTestParam, PPC_SETTINGS_rysev_m_matrix_multiple),
+                   ppc::util::AddFuncTask<RysevMMatrMulSEQ, InType>(kTestParam, PPC_SETTINGS_rysev_m_matrix_multiple));
 
-INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationTests, RysevMMatrixMulTest, ::testing::Values(2, 3, 4, 5),
-                         [](const testing::TestParamInfo<int> &info) { return "Size_" + std::to_string(info.param); });
+const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
+
+const auto kPerfTestName = RysevMRunFuncTestsProcesses::PrintFuncTestName<RysevMRunFuncTestsProcesses>;
+
+INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationTests, RysevMRunFuncTestsProcesses, kGtestValues, kPerfTestName);
+
+}  // namespace
 
 }  // namespace rysev_m_matrix_multiple
