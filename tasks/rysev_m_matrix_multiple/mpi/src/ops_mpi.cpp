@@ -69,7 +69,7 @@ bool RysevMMatrMulMPI::RunImpl() {
     offset += send_counts[i];
   }
 
-  local_rows_ = send_counts[rank_] / size_;
+  local_rows_ = (rank_ < num_procs_) ? send_counts[rank_] / size_ : 0;
 
   if (send_counts[rank_] > 0) {
     local_A_.resize(send_counts[rank_]);
@@ -81,7 +81,8 @@ bool RysevMMatrMulMPI::RunImpl() {
                send_counts[rank_], MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_rows_ > 0) {
-    local_C_.resize(local_rows_ * size_);
+    local_C_.resize(local_rows_ * size_, 0);
+
     for (int i = 0; i < local_rows_; ++i) {
       for (int j = 0; j < size_; ++j) {
         int sum = 0;
@@ -94,6 +95,7 @@ bool RysevMMatrMulMPI::RunImpl() {
   } else {
     local_C_.resize(1);
   }
+
   std::vector<int> recv_counts(num_procs_);
   std::vector<int> recv_displs(num_procs_);
 
@@ -110,13 +112,15 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  if (num_procs_ > 1) {
+    MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
+  }
+
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
-  if (rank_ == 0) {
-    GetOutput() = C_;
-  }
+  GetOutput() = C_;
   return true;
 }
 
