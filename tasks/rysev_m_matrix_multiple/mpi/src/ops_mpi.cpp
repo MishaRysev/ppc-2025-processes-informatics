@@ -96,20 +96,20 @@ bool RysevMMatrMulMPI::RunImpl() {
     offset += recv_counts[i];
   }
 
-  if (rank_ == 0) {
-    C_.resize(size_ * size_);
-    MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, C_.data(), recv_counts.data(), recv_displs.data(),
-                MPI_INT, 0, MPI_COMM_WORLD);
-  } else {
-    MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
-  }
+  int dummy;
+  MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, (rank_ == 0) ? C_.data() : &dummy, recv_counts.data(),
+              recv_displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
-  GetOutput() = C_;
-  return !C_.empty() || rank_ != 0;
+  if (rank_ == 0) {
+    GetOutput() = C_;
+  } else {
+    GetOutput() = std::vector<int>();
+  }
+  return true;
 }
 
 }  // namespace rysev_m_matrix_multiple
