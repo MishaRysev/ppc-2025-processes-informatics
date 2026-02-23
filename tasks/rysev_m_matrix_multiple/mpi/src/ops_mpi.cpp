@@ -119,3 +119,5 @@ bool RysevMMatrMulMPI::PostProcessingImpl() {
     return data_initialized_ && !C_.empty();
   }
 }
+
+}  // namespace rysev_m_matrix_multiple
