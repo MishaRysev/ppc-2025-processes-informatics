@@ -2,8 +2,6 @@
 
 #include <mpi.h>
 
-#include <iostream>
-#include <numeric>
 #include <vector>
 
 namespace rysev_m_matrix_multiple {
@@ -44,13 +42,10 @@ bool RysevMMatrMulMPI::PreProcessingImpl() {
   }
 
   MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
   return true;
 }
 
 bool RysevMMatrMulMPI::RunImpl() {
-  MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
   std::vector<int> send_counts(num_procs_);
   std::vector<int> displs(num_procs_);
 
@@ -66,7 +61,6 @@ bool RysevMMatrMulMPI::RunImpl() {
   }
 
   local_rows_ = send_counts[rank_] / size_;
-
   local_A_.resize(send_counts[rank_]);
 
   MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
@@ -75,7 +69,6 @@ bool RysevMMatrMulMPI::RunImpl() {
   if (rank_ != 0) {
     B_.resize(size_ * size_);
   }
-
   MPI_Bcast(B_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
   local_C_.assign(local_rows_ * size_, 0);
@@ -91,6 +84,7 @@ bool RysevMMatrMulMPI::RunImpl() {
       }
     }
   }
+
   std::vector<int> recv_counts(num_procs_);
   std::vector<int> recv_displs(num_procs_);
 
@@ -108,17 +102,14 @@ bool RysevMMatrMulMPI::RunImpl() {
                 MPI_INT, 0, MPI_COMM_WORLD);
   } else {
     MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
-    C_.resize(size_ * size_);
   }
-
-  MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
   GetOutput() = C_;
-  return !C_.empty();
+  return !C_.empty() || rank_ != 0;
 }
 
 }  // namespace rysev_m_matrix_multiple
