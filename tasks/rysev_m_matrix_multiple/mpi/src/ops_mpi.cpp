@@ -67,26 +67,31 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   local_rows_ = send_counts[rank_] / size_;
 
-  local_A_.resize(send_counts[rank_]);
-  if (rank_ != 0) {
-    B_.resize(size_ * size_);
-  }
+  local_A_.resize(send_counts[rank_] > 0 ? send_counts[rank_] : 1);
 
   MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
                send_counts[rank_], MPI_INT, 0, MPI_COMM_WORLD);
 
+  if (rank_ != 0) {
+    B_.resize(size_ * size_);
+  }
+
   MPI_Bcast(B_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
-  local_C_.assign(local_rows_ * size_, 0);
+  if (local_rows_ > 0) {
+    local_C_.assign(local_rows_ * size_, 0);
 
-  for (int i = 0; i < local_rows_; ++i) {
-    for (int j = 0; j < size_; ++j) {
-      int sum = 0;
-      for (int k = 0; k < size_; ++k) {
-        sum += local_A_[i * size_ + k] * B_[k * size_ + j];
+    for (int i = 0; i < local_rows_; ++i) {
+      for (int j = 0; j < size_; ++j) {
+        int sum = 0;
+        for (int k = 0; k < size_; ++k) {
+          sum += local_A_[i * size_ + k] * B_[k * size_ + j];
+        }
+        local_C_[i * size_ + j] = sum;
       }
-      local_C_[i * size_ + j] = sum;
     }
+  } else {
+    local_C_.resize(1);
   }
 
   std::vector<int> recv_counts(num_procs_);
@@ -102,13 +107,19 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   if (rank_ == 0) {
     C_.resize(size_ * size_);
-    MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, C_.data(), recv_counts.data(), recv_displs.data(),
-                MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(local_rows_ > 0 ? local_C_.data() : nullptr, local_rows_ * size_, MPI_INT, C_.data(),
+                recv_counts.data(), recv_displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
   } else {
-    MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(local_rows_ > 0 ? local_C_.data() : nullptr, local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr,
+                MPI_INT, 0, MPI_COMM_WORLD);
   }
 
-  MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
+  if (rank_ == 0) {
+    MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
+  } else {
+    C_.resize(size_ * size_);
+    MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
+  }
 
   return true;
 }
