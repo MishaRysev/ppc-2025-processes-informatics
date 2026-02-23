@@ -98,24 +98,24 @@ bool RysevMMatrMulMPI::RunImpl() {
   }
 
   if (rank_ == 0) {
+    C_.resize(size_ * size_);
     MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, C_.data(), recv_counts.data(), recv_displs.data(),
                 MPI_INT, 0, MPI_COMM_WORLD);
   } else {
     MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
+    C_ = local_C_;
   }
 
   data_initialized_ = true;
-
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
+  GetOutput() = C_;
+
   if (rank_ == 0) {
-    GetOutput() = C_;
     return !C_.empty();
+  } else {
+    return data_initialized_ && !C_.empty();
   }
-
-  return data_initialized_;
 }
-
-}  // namespace rysev_m_matrix_multiple
