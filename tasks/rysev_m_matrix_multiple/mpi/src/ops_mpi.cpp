@@ -2,6 +2,7 @@
 
 #include <mpi.h>
 
+#include <iostream>
 #include <numeric>
 #include <vector>
 
@@ -11,10 +12,25 @@ RysevMMatrMulMPI::RysevMMatrMulMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput() = std::vector<int>();
+  has_work_ = false;
 }
 
 bool RysevMMatrMulMPI::ValidationImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
+
+  if (rank_ == 0) {
+    const auto &input = GetInput();
+    const auto &A = std::get<0>(input);
+    const auto &B = std::get<1>(input);
+    int size = std::get<2>(input);
+
+    bool is_valid = !A.empty() && !B.empty() && size > 0 && A.size() == static_cast<size_t>(size * size) &&
+                    B.size() == static_cast<size_t>(size * size);
+
+    return is_valid;
+  }
+
   return true;
 }
 
@@ -31,12 +47,16 @@ bool RysevMMatrMulMPI::PreProcessingImpl() {
     C_.assign(size_ * size_, 0);
   }
 
+  MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (rank_ != 0) {
+    B_.resize(size_ * size_);
+  }
+
   return true;
 }
 
 bool RysevMMatrMulMPI::RunImpl() {
-  MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
   std::vector<int> send_counts(num_procs_);
   std::vector<int> displs(num_procs_);
 
@@ -52,26 +72,33 @@ bool RysevMMatrMulMPI::RunImpl() {
   }
 
   local_rows_ = send_counts[rank_] / size_;
-  local_A_.resize(send_counts[rank_]);
+  has_work_ = (local_rows_ > 0);
+
+  if (has_work_) {
+    local_A_.resize(send_counts[rank_]);
+  } else {
+    local_A_.resize(0);
+  }
 
   MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
                send_counts[rank_], MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (rank_ != 0) {
-    B_.resize(size_ * size_);
-  }
   MPI_Bcast(B_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
-  local_C_.assign(local_rows_ * size_, 0);
+  if (has_work_) {
+    local_C_.assign(local_rows_ * size_, 0);
 
-  for (int i = 0; i < local_rows_; ++i) {
-    for (int j = 0; j < size_; ++j) {
-      int sum = 0;
-      for (int k = 0; k < size_; ++k) {
-        sum += local_A_[i * size_ + k] * B_[k * size_ + j];
+    for (int i = 0; i < local_rows_; ++i) {
+      for (int j = 0; j < size_; ++j) {
+        int sum = 0;
+        for (int k = 0; k < size_; ++k) {
+          sum += local_A_[i * size_ + k] * B_[k * size_ + j];
+        }
+        local_C_[i * size_ + j] = sum;
       }
-      local_C_[i * size_ + j] = sum;
     }
+  } else {
+    local_C_.resize(0);
   }
 
   std::vector<int> recv_counts(num_procs_);
@@ -93,17 +120,17 @@ bool RysevMMatrMulMPI::RunImpl() {
     MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
   }
 
-  if (rank_ != 0) {
-    C_.resize(size_ * size_);
-  }
-  MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
-
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
-  GetOutput() = C_;
-  return !C_.empty();
+  if (rank_ == 0) {
+    GetOutput() = C_;
+    return !C_.empty();
+  }
+
+  GetOutput() = std::vector<int>();
+  return true;
 }
 
 }  // namespace rysev_m_matrix_multiple
