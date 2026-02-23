@@ -42,7 +42,6 @@ bool RysevMMatrMulMPI::PreProcessingImpl() {
   }
 
   MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
   return true;
 }
 
@@ -63,10 +62,7 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   int offset = 0;
   for (int i = 0; i < num_procs_; ++i) {
-    int proc_rows = base_rows;
-    if (i < remainder) {
-      proc_rows++;
-    }
+    int proc_rows = base_rows + (i < remainder ? 1 : 0);
     send_counts[i] = proc_rows * size_;
     displs[i] = offset;
     offset += send_counts[i];
@@ -82,8 +78,8 @@ bool RysevMMatrMulMPI::RunImpl() {
     local_C_.clear();
   }
 
-  MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
-               local_rows_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT,
+               local_rows_ > 0 ? local_A_.data() : nullptr, local_rows_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_rows_ > 0) {
     for (int i = 0; i < local_rows_; ++i) {
