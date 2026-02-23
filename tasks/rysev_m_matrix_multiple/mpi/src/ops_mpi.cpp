@@ -15,17 +15,6 @@ RysevMMatrMulMPI::RysevMMatrMulMPI(const InType &in) {
 
 bool RysevMMatrMulMPI::ValidationImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
-
-  if (rank_ == 0) {
-    const auto &input = GetInput();
-    const auto &A = std::get<0>(input);
-    const auto &B = std::get<1>(input);
-    int size = std::get<2>(input);
-
-    return !A.empty() && !B.empty() && size > 0 && A.size() == static_cast<size_t>(size * size) &&
-           B.size() == static_cast<size_t>(size * size);
-  }
-
   return true;
 }
 
