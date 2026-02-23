@@ -1,3 +1,57 @@
+#include "rysev_m_matrix_multiple/mpi/include/ops_mpi.hpp"
+
+#include <mpi.h>
+
+#include <algorithm>
+#include <vector>
+
+namespace rysev_m_matrix_multiple {
+
+RysevMMatrMulMPI::RysevMMatrMulMPI(const InType &in) {
+  SetTypeOfTask(GetStaticTypeOfTask());
+  GetInput() = in;
+  GetOutput() = std::vector<int>();
+}
+
+bool RysevMMatrMulMPI::ValidationImpl() {
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
+
+  if (rank_ == 0) {
+    const auto &input = GetInput();
+    const auto &A = std::get<0>(input);
+    const auto &B = std::get<1>(input);
+    int size = std::get<2>(input);
+
+    return !A.empty() && !B.empty() && size > 0 && A.size() == static_cast<size_t>(size * size) &&
+           B.size() == static_cast<size_t>(size * size);
+  }
+  return true;
+}
+
+bool RysevMMatrMulMPI::PreProcessingImpl() {
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
+
+  if (rank_ == 0) {
+    const auto &input = GetInput();
+    A_ = std::get<0>(input);
+    B_ = std::get<1>(input);
+    size_ = std::get<2>(input);
+    C_.assign(size_ * size_, 0);
+  }
+
+  MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (rank_ != 0) {
+    A_.resize(size_ * size_);
+    B_.resize(size_ * size_);
+    C_.resize(size_ * size_);
+  }
+
+  return true;
+}
+
 bool RysevMMatrMulMPI::RunImpl() {
   MPI_Bcast(B_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -56,3 +110,12 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   return true;
 }
+
+bool RysevMMatrMulMPI::PostProcessingImpl() {
+  if (rank_ == 0) {
+    GetOutput() = C_;
+  }
+  return true;
+}
+
+}  // namespace rysev_m_matrix_multiple
