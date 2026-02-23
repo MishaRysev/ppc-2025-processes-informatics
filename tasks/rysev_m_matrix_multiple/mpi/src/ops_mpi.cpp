@@ -43,16 +43,16 @@ bool RysevMMatrMulMPI::PreProcessingImpl() {
 
   MPI_Bcast(&size_, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+  return true;
+}
+
+bool RysevMMatrMulMPI::RunImpl() {
   if (rank_ != 0) {
     A_.resize(size_ * size_);
     B_.resize(size_ * size_);
     C_.resize(size_ * size_);
   }
 
-  return true;
-}
-
-bool RysevMMatrMulMPI::RunImpl() {
   MPI_Bcast(B_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
   std::vector<int> send_counts(num_procs_);
@@ -69,13 +69,18 @@ bool RysevMMatrMulMPI::RunImpl() {
     offset += send_counts[i];
   }
 
-  local_rows_ = send_counts[rank_] / size_;
-  local_A_.resize(send_counts[rank_]);
+  local_rows_ = (rank_ < static_cast<int>(send_counts.size())) ? send_counts[rank_] / size_ : 0;
+
+  if (local_rows_ > 0) {
+    local_A_.resize(local_rows_ * size_);
+    local_C_.resize(local_rows_ * size_, 0);
+  } else {
+    local_A_.clear();
+    local_C_.clear();
+  }
 
   MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
-               send_counts[rank_], MPI_INT, 0, MPI_COMM_WORLD);
-
-  local_C_.assign(local_rows_ * size_, 0);
+               local_rows_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_rows_ > 0) {
     for (int i = 0; i < local_rows_; ++i) {
