@@ -1,9 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <array>
-#include <cstddef>
-#include <numeric>
 #include <random>
 #include <string>
 #include <tuple>
@@ -31,6 +28,21 @@ std::vector<int> ReferenceMultiply(const std::vector<int> &A, const std::vector<
   }
   return C;
 }
+
+std::tuple<std::vector<int>, std::vector<int>, int> GenerateTestData(int size, int seed = 42) {
+  std::mt19937 gen(seed + size);
+  std::uniform_int_distribution<> dis(1, 10);
+
+  std::vector<int> A(size * size);
+  std::vector<int> B(size * size);
+
+  for (int i = 0; i < size * size; ++i) {
+    A[i] = dis(gen);
+    B[i] = dis(gen);
+  }
+
+  return std::make_tuple(A, B, size);
+}
 }  // namespace
 
 class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
@@ -44,20 +56,11 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int size = std::get<0>(params);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(1, 10);
+    auto data = GenerateTestData(size);
+    input_data_ = data;
 
-    std::vector<int> A(size * size);
-    std::vector<int> B(size * size);
-
-    for (int i = 0; i < size * size; ++i) {
-      A[i] = dis(gen);
-      B[i] = dis(gen);
-    }
-
-    input_data_ = std::make_tuple(A, B, size);
-
+    const auto &A = std::get<0>(data);
+    const auto &B = std::get<1>(data);
     expected_output_ = ReferenceMultiply(A, B, size);
   }
 
@@ -76,10 +79,6 @@ class RysevMRunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, O
 
 namespace {
 
-TEST_P(RysevMRunFuncTestsProcesses, MatmulFromGen) {
-  ExecuteTest(GetParam());
-}
-
 const std::array<TestType, 4> kTestParam = {std::make_tuple(2, "2"), std::make_tuple(3, "3"), std::make_tuple(4, "4"),
                                             std::make_tuple(5, "5")};
 
@@ -92,6 +91,10 @@ const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 const auto kPerfTestName = RysevMRunFuncTestsProcesses::PrintFuncTestName<RysevMRunFuncTestsProcesses>;
 
 INSTANTIATE_TEST_SUITE_P(MatrixMultiplicationTests, RysevMRunFuncTestsProcesses, kGtestValues, kPerfTestName);
+
+TEST_P(RysevMRunFuncTestsProcesses, MatmulFromGen) {
+  ExecuteTest(GetParam());
+}
 
 }  // namespace
 
