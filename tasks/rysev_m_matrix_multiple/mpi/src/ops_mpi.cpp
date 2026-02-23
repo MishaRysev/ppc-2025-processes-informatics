@@ -78,9 +78,9 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   MPI_Bcast(B_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (local_rows_ > 0) {
-    local_C_.assign(local_rows_ * size_, 0);
+  local_C_.assign(local_rows_ * size_, 0);
 
+  if (local_rows_ > 0) {
     for (int i = 0; i < local_rows_; ++i) {
       for (int j = 0; j < size_; ++j) {
         int sum = 0;
@@ -91,7 +91,6 @@ bool RysevMMatrMulMPI::RunImpl() {
       }
     }
   }
-
   std::vector<int> recv_counts(num_procs_);
   std::vector<int> recv_displs(num_procs_);
 
