@@ -63,7 +63,10 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   int offset = 0;
   for (int i = 0; i < num_procs_; ++i) {
-    int proc_rows = base_rows + (i < remainder ? 1 : 0);
+    int proc_rows = base_rows;
+    if (i < remainder) {
+      proc_rows++;
+    }
     send_counts[i] = proc_rows * size_;
     displs[i] = offset;
     offset += send_counts[i];
@@ -71,12 +74,12 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   local_rows_ = send_counts[rank_] / size_;
 
-  if (local_rows_ == 0) {
-    local_A_.clear();
-    local_C_.clear();
-  } else {
+  if (local_rows_ > 0) {
     local_A_.resize(local_rows_ * size_);
     local_C_.assign(local_rows_ * size_, 0);
+  } else {
+    local_A_.clear();
+    local_C_.clear();
   }
 
   MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
