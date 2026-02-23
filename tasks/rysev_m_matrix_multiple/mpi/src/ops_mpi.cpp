@@ -23,18 +23,16 @@ bool RysevMMatrMulMPI::ValidationImpl() {
          B.size() == static_cast<size_t>(size * size);
 }
 
-bool RysevMMatrMulMPI::PreProcessingImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
-
-  const auto &input = GetInput();
-
+bool RysevMMatrMulMPI::PostProcessingImpl() {
   if (rank_ == 0) {
-    A_ = std::get<0>(input);
-    B_ = std::get<1>(input);
-    size_ = std::get<2>(input);
-    C_.assign(size_ * size_, 0);
+    GetOutput() = C_;
   }
+
+  int total_size = size_ * size_;
+  if (rank_ != 0) {
+    GetOutput().resize(total_size);
+  }
+  MPI_Bcast(GetOutput().data(), total_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   return true;
 }
