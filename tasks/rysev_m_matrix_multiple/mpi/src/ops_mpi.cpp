@@ -71,18 +71,17 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   local_rows_ = send_counts[rank_] / size_;
 
-  size_t local_a_size = send_counts[rank_] > 0 ? send_counts[rank_] : 1;
-  local_A_.resize(local_a_size);
-  if (send_counts[rank_] == 0) {
+  if (send_counts[rank_] > 0) {
+    local_A_.resize(send_counts[rank_]);
+  } else {
+    local_A_.resize(1);
   }
-
-  size_t local_c_size = (local_rows_ * size_) > 0 ? local_rows_ * size_ : 1;
-  local_C_.assign(local_c_size, 0);
 
   MPI_Scatterv(rank_ == 0 ? A_.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_A_.data(),
                send_counts[rank_], MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_rows_ > 0) {
+    local_C_.resize(local_rows_ * size_);
     for (int i = 0; i < local_rows_; ++i) {
       for (int j = 0; j < size_; ++j) {
         int sum = 0;
@@ -92,8 +91,9 @@ bool RysevMMatrMulMPI::RunImpl() {
         local_C_[i * size_ + j] = sum;
       }
     }
+  } else {
+    local_C_.resize(1);
   }
-
   std::vector<int> recv_counts(num_procs_);
   std::vector<int> recv_displs(num_procs_);
 
@@ -107,6 +107,8 @@ bool RysevMMatrMulMPI::RunImpl() {
 
   MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, rank_ == 0 ? C_.data() : nullptr, recv_counts.data(),
               recv_displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+
+  MPI_Barrier(MPI_COMM_WORLD);
 
   return true;
 }

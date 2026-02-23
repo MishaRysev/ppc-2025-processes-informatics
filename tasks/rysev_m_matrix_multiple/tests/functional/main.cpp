@@ -29,7 +29,7 @@ std::vector<int> ReferenceMultiply(const std::vector<int> &A, const std::vector<
   return C;
 }
 
-std::tuple<std::vector<int>, std::vector<int>, int> GenerateTestData(int size, int seed = 42) {
+auto GenerateTestData(int size, int seed = 42) {
   std::mt19937 gen(seed + size);
   std::uniform_int_distribution<> dis(1, 10);
 
