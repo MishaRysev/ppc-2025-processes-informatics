@@ -40,7 +40,6 @@ bool RysevMMatrMulMPI::PreProcessingImpl() {
     B_ = std::get<1>(input);
     size_ = std::get<2>(input);
     C_.assign(size_ * size_, 0);
-    data_initialized_ = false;
   }
 
   return true;
@@ -103,21 +102,19 @@ bool RysevMMatrMulMPI::RunImpl() {
                 MPI_INT, 0, MPI_COMM_WORLD);
   } else {
     MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
-    C_ = local_C_;
   }
 
-  data_initialized_ = true;
+  if (rank_ != 0) {
+    C_.resize(size_ * size_);
+  }
+  MPI_Bcast(C_.data(), size_ * size_, MPI_INT, 0, MPI_COMM_WORLD);
+
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
   GetOutput() = C_;
-
-  if (rank_ == 0) {
-    return !C_.empty();
-  } else {
-    return data_initialized_ && !C_.empty();
-  }
+  return !C_.empty();
 }
 
 }  // namespace rysev_m_matrix_multiple
