@@ -14,13 +14,19 @@ RysevMMatrMulMPI::RysevMMatrMulMPI(const InType &in) {
 }
 
 bool RysevMMatrMulMPI::ValidationImpl() {
-  const auto &input = GetInput();
-  const auto &A = std::get<0>(input);
-  const auto &B = std::get<1>(input);
-  int size = std::get<2>(input);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
 
-  return !A.empty() && !B.empty() && size > 0 && A.size() == static_cast<size_t>(size * size) &&
-         B.size() == static_cast<size_t>(size * size);
+  if (rank_ == 0) {
+    const auto &input = GetInput();
+    const auto &A = std::get<0>(input);
+    const auto &B = std::get<1>(input);
+    int size = std::get<2>(input);
+
+    return !A.empty() && !B.empty() && size > 0 && A.size() == static_cast<size_t>(size * size) &&
+           B.size() == static_cast<size_t>(size * size);
+  }
+
+  return true;
 }
 
 bool RysevMMatrMulMPI::PreProcessingImpl() {
@@ -34,6 +40,7 @@ bool RysevMMatrMulMPI::PreProcessingImpl() {
     B_ = std::get<1>(input);
     size_ = std::get<2>(input);
     C_.assign(size_ * size_, 0);
+    data_initialized_ = false;
   }
 
   return true;
@@ -97,21 +104,18 @@ bool RysevMMatrMulMPI::RunImpl() {
     MPI_Gatherv(local_C_.data(), local_rows_ * size_, MPI_INT, nullptr, nullptr, nullptr, MPI_INT, 0, MPI_COMM_WORLD);
   }
 
+  data_initialized_ = true;
+
   return true;
 }
 
 bool RysevMMatrMulMPI::PostProcessingImpl() {
   if (rank_ == 0) {
     GetOutput() = C_;
+    return !C_.empty();
   }
 
-  int total_size = size_ * size_;
-  if (rank_ != 0) {
-    GetOutput().resize(total_size);
-  }
-  MPI_Bcast(GetOutput().data(), total_size, MPI_INT, 0, MPI_COMM_WORLD);
-
-  return true;
+  return data_initialized_;
 }
 
 }  // namespace rysev_m_matrix_multiple

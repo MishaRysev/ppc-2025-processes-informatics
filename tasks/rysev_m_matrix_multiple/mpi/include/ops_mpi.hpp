@@ -31,6 +31,8 @@ class RysevMMatrMulMPI : public BaseTask {
   std::vector<int> local_A_;
   std::vector<int> local_C_;
   int local_rows_;
+
+  bool data_initialized_ = false;
 };
 
 }  // namespace rysev_m_matrix_multiple
