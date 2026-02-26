@@ -3,6 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 namespace rysev_m_shell_sort_simple_merge {
@@ -44,7 +45,17 @@ void RysevMShellSortMPI::ShellSort(std::vector<int> &arr) {
 }
 
 std::vector<int> RysevMShellSortMPI::MergeSortedArrays(const std::vector<std::vector<int>> &sorted_chunks) {
+  if (sorted_chunks.empty()) {
+    return std::vector<int>();
+  }
+
   std::vector<int> result;
+  size_t total_size = 0;
+  for (const auto &chunk : sorted_chunks) {
+    total_size += chunk.size();
+  }
+  result.reserve(total_size);
+
   std::vector<size_t> indices(sorted_chunks.size(), 0);
 
   while (true) {
@@ -70,12 +81,19 @@ std::vector<int> RysevMShellSortMPI::MergeSortedArrays(const std::vector<std::ve
 }
 
 bool RysevMShellSortMPI::RunImpl() {
-  std::vector<int> input_data;
   int data_size = 0;
+  std::vector<int> input_data;
 
   if (rank_ == 0) {
-    input_data = GetInput();
-    data_size = input_data.size();
+    const auto &input_ref = GetInput();
+    data_size = input_ref.size();
+
+    if (data_size > 0) {
+      input_data.reserve(data_size);
+      for (int i = 0; i < data_size; ++i) {
+        input_data.push_back(input_ref[i]);
+      }
+    }
   }
 
   MPI_Bcast(&data_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -84,11 +102,11 @@ bool RysevMShellSortMPI::RunImpl() {
     return false;
   }
 
+  std::vector<int> send_counts(num_procs_, 0);
+  std::vector<int> displs(num_procs_, 0);
+
   int base_size = data_size / num_procs_;
   int remainder = data_size % num_procs_;
-
-  std::vector<int> send_counts(num_procs_);
-  std::vector<int> displs(num_procs_);
 
   int offset = 0;
   for (int i = 0; i < num_procs_; ++i) {
@@ -98,39 +116,66 @@ bool RysevMShellSortMPI::RunImpl() {
   }
 
   int local_size = send_counts[rank_];
-  local_data_.resize(local_size);
 
-  MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_data_.data(),
-               local_size, MPI_INT, 0, MPI_COMM_WORLD);
+  local_data_.clear();
+  if (local_size > 0) {
+    local_data_.resize(local_size);
+  }
+
+  MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT,
+               local_size > 0 ? local_data_.data() : nullptr, local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_size > 0) {
     ShellSort(local_data_);
   }
 
-  std::vector<int> all_sizes(num_procs_);
-  MPI_Gather(&local_size, 1, MPI_INT, all_sizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+  std::vector<int> recv_counts(num_procs_, 0);
+  MPI_Gather(&local_size, 1, MPI_INT, recv_counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  std::vector<int> all_displs(num_procs_);
+  std::vector<int> recv_displs(num_procs_, 0);
   if (rank_ == 0) {
     offset = 0;
     for (int i = 0; i < num_procs_; ++i) {
-      all_displs[i] = offset;
-      offset += all_sizes[i];
+      recv_displs[i] = offset;
+      offset += recv_counts[i];
     }
   }
 
   std::vector<int> gathered_data;
-  if (rank_ == 0) {
+  if (rank_ == 0 && data_size > 0) {
     gathered_data.resize(data_size);
   }
 
-  MPI_Gatherv(local_data_.data(), local_size, MPI_INT, rank_ == 0 ? gathered_data.data() : nullptr, all_sizes.data(),
-              all_displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Gatherv(local_size > 0 ? local_data_.data() : nullptr, local_size, MPI_INT,
+              rank_ == 0 ? gathered_data.data() : nullptr, recv_counts.data(), recv_displs.data(), MPI_INT, 0,
+              MPI_COMM_WORLD);
 
+  // Финальное слияние на процессе 0
   if (rank_ == 0) {
-    std::vector<int> temp = gathered_data;
-    ShellSort(temp);
-    GetOutput() = temp;
+    if (data_size > 0 && !gathered_data.empty()) {
+      std::vector<std::vector<int>> chunks;
+      chunks.reserve(num_procs_);
+
+      for (int i = 0; i < num_procs_; ++i) {
+        if (recv_counts[i] > 0) {
+          std::vector<int> chunk;
+          chunk.reserve(recv_counts[i]);
+          for (int j = 0; j < recv_counts[i]; ++j) {
+            chunk.push_back(gathered_data[recv_displs[i] + j]);
+          }
+          chunks.push_back(std::move(chunk));
+        }
+      }
+
+      if (!chunks.empty()) {
+        std::vector<int> result = MergeSortedArrays(chunks);
+        GetOutput().clear();
+        GetOutput().reserve(result.size());
+        for (size_t i = 0; i < result.size(); ++i) {
+          GetOutput().push_back(result[i]);
+        }
+      }
+    }
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
