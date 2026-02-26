@@ -18,7 +18,7 @@ class RysevShellSortSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  void ShellSort(std::vector<int>& arr);
+  void ShellSort(std::vector<int> &arr);
 };
 
 }  // namespace rysev_m_shell_sort_simple_merge

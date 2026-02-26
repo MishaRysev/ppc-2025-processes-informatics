@@ -20,8 +20,8 @@ class RysevMShellSortMPI : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  void ShellSort(std::vector<int>& arr);
-  std::vector<int> MergeSortedArrays(const std::vector<std::vector<int>>& sorted_chunks);
+  void ShellSort(std::vector<int> &arr);
+  std::vector<int> MergeSortedArrays(const std::vector<std::vector<int>> &sorted_chunks);
 
   int rank_;
   int num_procs_;

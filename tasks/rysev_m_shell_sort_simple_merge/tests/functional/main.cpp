@@ -25,11 +25,11 @@ class RysevMShellSortFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int size = std::get<0>(params);
-    
+
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(1, 1000);
-    
+
     input_data_.resize(size);
     for (int i = 0; i < size; ++i) {
       input_data_[i] = dis(gen);
@@ -56,17 +56,13 @@ TEST_P(RysevMShellSortFuncTests, ShellSortFromRandom) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 5> kTestParam = {
-  std::make_tuple(10, "10"),
-  std::make_tuple(50, "50"),
-  std::make_tuple(100, "100"),
-  std::make_tuple(500, "500"),
-  std::make_tuple(1000, "1000")
-};
+const std::array<TestType, 5> kTestParam = {std::make_tuple(10, "10"), std::make_tuple(50, "50"),
+                                            std::make_tuple(100, "100"), std::make_tuple(500, "500"),
+                                            std::make_tuple(1000, "1000")};
 
-const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<RysevMShellSortMPI, InType>(kTestParam, PPC_SETTINGS_rysev_m_shell_sort_simple_merge),
-                   ppc::util::AddFuncTask<RysevShellSortSEQ, InType>(kTestParam, PPC_SETTINGS_rysev_m_shell_sort_simple_merge));
+const auto kTestTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<RysevMShellSortMPI, InType>(kTestParam, PPC_SETTINGS_rysev_m_shell_sort_simple_merge),
+    ppc::util::AddFuncTask<RysevShellSortSEQ, InType>(kTestParam, PPC_SETTINGS_rysev_m_shell_sort_simple_merge));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 

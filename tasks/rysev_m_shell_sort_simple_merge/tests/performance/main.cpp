@@ -17,7 +17,7 @@ class ShellSortPerfTest : public ppc::util::BaseRunPerfTests<InType, OutType> {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(1, 10000);
-    
+
     input_data_.resize(kSize_);
     for (int i = 0; i < kSize_; ++i) {
       input_data_[i] = dis(gen);
@@ -41,8 +41,8 @@ TEST_P(ShellSortPerfTest, RunPerfModes) {
 
 namespace {
 
-const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, RysevMShellSortMPI, RysevShellSortSEQ>(PPC_SETTINGS_rysev_m_shell_sort_simple_merge);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, RysevMShellSortMPI, RysevShellSortSEQ>(
+    PPC_SETTINGS_rysev_m_shell_sort_simple_merge);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 

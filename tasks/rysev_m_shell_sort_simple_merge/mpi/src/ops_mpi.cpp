@@ -29,7 +29,7 @@ bool RysevMShellSortMPI::PreProcessingImpl() {
   return true;
 }
 
-void RysevMShellSortMPI::ShellSort(std::vector<int>& arr) {
+void RysevMShellSortMPI::ShellSort(std::vector<int> &arr) {
   int n = arr.size();
   for (int gap = n / 2; gap > 0; gap /= 2) {
     for (int i = gap; i < n; ++i) {
@@ -43,27 +43,29 @@ void RysevMShellSortMPI::ShellSort(std::vector<int>& arr) {
   }
 }
 
-std::vector<int> RysevMShellSortMPI::MergeSortedArrays(const std::vector<std::vector<int>>& sorted_chunks) {
+std::vector<int> RysevMShellSortMPI::MergeSortedArrays(const std::vector<std::vector<int>> &sorted_chunks) {
   std::vector<int> result;
   std::vector<size_t> indices(sorted_chunks.size(), 0);
-  
+
   while (true) {
     int min_val = std::numeric_limits<int>::max();
     int min_idx = -1;
-    
+
     for (size_t i = 0; i < sorted_chunks.size(); ++i) {
       if (indices[i] < sorted_chunks[i].size() && sorted_chunks[i][indices[i]] < min_val) {
         min_val = sorted_chunks[i][indices[i]];
         min_idx = i;
       }
     }
-    
-    if (min_idx == -1) break;
-    
+
+    if (min_idx == -1) {
+      break;
+    }
+
     result.push_back(min_val);
     indices[min_idx]++;
   }
-  
+
   return result;
 }
 
@@ -98,10 +100,8 @@ bool RysevMShellSortMPI::RunImpl() {
   int local_size = send_counts[rank_];
   local_data_.resize(local_size);
 
-  MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, 
-               send_counts.data(), displs.data(), MPI_INT,
-               local_data_.data(), local_size, MPI_INT, 
-               0, MPI_COMM_WORLD);
+  MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_data_.data(),
+               local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_size > 0) {
     ShellSort(local_data_);
@@ -124,10 +124,8 @@ bool RysevMShellSortMPI::RunImpl() {
     gathered_data.resize(data_size);
   }
 
-  MPI_Gatherv(local_data_.data(), local_size, MPI_INT,
-              rank_ == 0 ? gathered_data.data() : nullptr,
-              all_sizes.data(), all_displs.data(), MPI_INT,
-              0, MPI_COMM_WORLD);
+  MPI_Gatherv(local_data_.data(), local_size, MPI_INT, rank_ == 0 ? gathered_data.data() : nullptr, all_sizes.data(),
+              all_displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
   if (rank_ == 0) {
     std::vector<int> temp = gathered_data;
