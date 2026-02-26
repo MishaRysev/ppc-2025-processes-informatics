@@ -35,14 +35,18 @@ void RysevShellSortSEQ::ShellSort(std::vector<int> &arr) {
 }
 
 bool RysevShellSortSEQ::RunImpl() {
-  auto input = GetInput();
+  const auto &input = GetInput();
+
   if (input.empty()) {
     return false;
   }
 
-  std::vector<int> arr = input;
+  std::vector<int> arr;
+  arr.reserve(input.size());
+  arr.assign(input.begin(), input.end());
+
   ShellSort(arr);
-  GetOutput() = arr;
+  GetOutput() = std::move(arr);
   return true;
 }
 
