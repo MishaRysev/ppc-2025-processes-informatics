@@ -3,7 +3,6 @@
 #include <mpi.h>
 
 #include <algorithm>
-#include <limits>
 #include <vector>
 
 namespace rysev_m_shell_sort_simple_merge {
@@ -18,12 +17,12 @@ bool RysevMShellSortMPI::ValidationImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
 
-  int is_valid_int = 1;
+  int is_valid = 1;
   if (rank_ == 0) {
-    is_valid_int = GetInput().empty() ? 0 : 1;
+    is_valid = GetInput().empty() ? 0 : 1;
   }
-  MPI_Bcast(&is_valid_int, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  return is_valid_int != 0;
+  MPI_Bcast(&is_valid, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  return is_valid == 1;
 }
 
 bool RysevMShellSortMPI::PreProcessingImpl() {
@@ -88,7 +87,7 @@ bool RysevMShellSortMPI::RunImpl() {
   }
 
   int dummy = 0;
-  int *local_ptr = (local_size > 0) ? local_block_.data() : &dummy;
+  int *local_ptr = local_size > 0 ? local_block_.data() : &dummy;
 
   MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_ptr,
                local_size, MPI_INT, 0, MPI_COMM_WORLD);
@@ -110,22 +109,22 @@ bool RysevMShellSortMPI::RunImpl() {
     result.reserve(data_size);
     std::vector<int> indices(num_procs_, 0);
 
-    for (int k = 0; k < data_size; ++k) {
+    for (int i = 0; i < data_size; ++i) {
       int best_proc = -1;
       int best_val = 0;
-      for (int i = 0; i < num_procs_; ++i) {
-        if (indices[i] < send_counts[i]) {
-          best_proc = i;
-          best_val = gathered_data[displs[i] + indices[i]];
+      for (int j = 0; j < num_procs_; ++j) {
+        if (indices[j] < send_counts[j]) {
+          best_proc = j;
+          best_val = gathered_data[displs[j] + indices[j]];
           break;
         }
       }
-      for (int i = best_proc + 1; i < num_procs_; ++i) {
-        if (indices[i] < send_counts[i]) {
-          int val = gathered_data[displs[i] + indices[i]];
+      for (int j = best_proc + 1; j < num_procs_; ++j) {
+        if (indices[j] < send_counts[j]) {
+          int val = gathered_data[displs[j] + indices[j]];
           if (val < best_val) {
             best_val = val;
-            best_proc = i;
+            best_proc = j;
           }
         }
       }
