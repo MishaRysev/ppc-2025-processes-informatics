@@ -8,8 +8,6 @@
 
 namespace rysev_m_shell_sort_simple_merge {
 
-static int dummy_buffer = 0;
-
 RysevMShellSortMPI::RysevMShellSortMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -41,32 +39,6 @@ void RysevMShellSortMPI::ShellSort(std::vector<int> &arr) {
       }
       arr[j] = temp;
     }
-  }
-}
-
-void RysevMShellSortMPI::MergeBlocks(const std::vector<int> &block_sizes, const std::vector<int> &blocks_data,
-                                     const std::vector<int> &offsets, int total_elements) {
-  merged_result_.clear();
-  merged_result_.reserve(total_elements);
-
-  std::vector<int> current_pos(num_procs_, 0);
-
-  for (int k = 0; k < total_elements; ++k) {
-    int best_proc = -1;
-    int best_value = std::numeric_limits<int>::max();
-
-    for (int proc = 0; proc < num_procs_; ++proc) {
-      if (current_pos[proc] < block_sizes[proc]) {
-        int value = blocks_data[offsets[proc] + current_pos[proc]];
-        if (best_proc == -1 || value < best_value) {
-          best_value = value;
-          best_proc = proc;
-        }
-      }
-    }
-
-    merged_result_.push_back(best_value);
-    ++current_pos[best_proc];
   }
 }
 
@@ -110,25 +82,48 @@ bool RysevMShellSortMPI::RunImpl() {
     local_block_.resize(local_size);
   }
 
-  MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT,
-               local_size > 0 ? local_block_.data() : &dummy_buffer, local_size, MPI_INT, 0, MPI_COMM_WORLD);
+  int dummy = 0;
+  int *local_ptr = (local_size > 0) ? local_block_.data() : &dummy;
+
+  MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, local_ptr,
+               local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_size > 0) {
     ShellSort(local_block_);
   }
 
   std::vector<int> gathered_data;
-  if (rank_ == 0 && data_size > 0) {
+  if (rank_ == 0) {
     gathered_data.resize(data_size);
   }
 
-  MPI_Gatherv(local_size > 0 ? local_block_.data() : &dummy_buffer, local_size, MPI_INT,
-              rank_ == 0 ? gathered_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, 0,
-              MPI_COMM_WORLD);
+  MPI_Gatherv(local_ptr, local_size, MPI_INT, rank_ == 0 ? gathered_data.data() : nullptr, send_counts.data(),
+              displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (rank_ == 0 && data_size > 0) {
-    MergeBlocks(send_counts, gathered_data, displs, data_size);
-    GetOutput() = merged_result_;
+  if (rank_ == 0) {
+    std::vector<int> result;
+    result.reserve(data_size);
+    std::vector<int> indices(num_procs_, 0);
+
+    for (int k = 0; k < data_size; ++k) {
+      int best_proc = -1;
+      int best_val = std::numeric_limits<int>::max();
+
+      for (int i = 0; i < num_procs_; ++i) {
+        if (indices[i] < send_counts[i]) {
+          int val = gathered_data[displs[i] + indices[i]];
+          if (best_proc == -1 || val < best_val) {
+            best_val = val;
+            best_proc = i;
+          }
+        }
+      }
+
+      result.push_back(best_val);
+      ++indices[best_proc];
+    }
+
+    GetOutput() = std::move(result);
   }
 
   return true;
