@@ -60,9 +60,7 @@ bool RysevMShellSortMPI::RunImpl() {
   MPI_Bcast(&data_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (data_size == 0) {
-    if (rank_ == 0) {
-      GetOutput() = std::vector<int>();
-    }
+    GetOutput().clear();
     return true;
   }
 
@@ -122,7 +120,6 @@ bool RysevMShellSortMPI::RunImpl() {
           break;
         }
       }
-
       for (int i = best_proc + 1; i < num_procs_; ++i) {
         if (indices[i] < send_counts[i]) {
           int val = gathered_data[displs[i] + indices[i]];
@@ -132,13 +129,17 @@ bool RysevMShellSortMPI::RunImpl() {
           }
         }
       }
-
       result.push_back(best_val);
       ++indices[best_proc];
     }
 
     GetOutput() = std::move(result);
   }
+
+  if (rank_ != 0) {
+    GetOutput().resize(data_size);
+  }
+  MPI_Bcast(GetOutput().data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   return true;
 }
