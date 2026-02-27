@@ -105,21 +105,15 @@ bool RysevMShellSortMPI::RunImpl() {
               MPI_COMM_WORLD);
 
   if (rank_ == 0 && data_size > 0) {
-    int total = 0;
-    for (int i = 0; i < num_procs_; ++i) {
-      total += recv_counts[i];
-    }
-    if (total != data_size) {
-      MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-
     std::vector<int> result;
     result.reserve(data_size);
+
     std::vector<int> indices(num_procs_, 0);
 
     while (true) {
       int min_val = std::numeric_limits<int>::max();
       int min_idx = -1;
+
       for (int i = 0; i < num_procs_; ++i) {
         if (indices[i] < recv_counts[i]) {
           int val = gathered_data[recv_displs[i] + indices[i]];
@@ -129,9 +123,11 @@ bool RysevMShellSortMPI::RunImpl() {
           }
         }
       }
+
       if (min_idx == -1) {
         break;
       }
+
       result.push_back(min_val);
       indices[min_idx]++;
     }
