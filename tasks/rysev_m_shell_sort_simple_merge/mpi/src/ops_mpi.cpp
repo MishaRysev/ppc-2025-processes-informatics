@@ -28,16 +28,43 @@ bool RysevMShellSortMPI::PreProcessingImpl() {
 }
 
 void RysevMShellSortMPI::ShellSort(std::vector<int> &arr) {
-  int n = arr.size();
+  int n = static_cast<int>(arr.size());
   for (int gap = n / 2; gap > 0; gap /= 2) {
     for (int i = gap; i < n; ++i) {
       int temp = arr[i];
-      int j;
-      for (j = i; j >= gap && arr[j - gap] > temp; j -= gap) {
+      int j = i;
+      while (j >= gap && arr[j - gap] > temp) {
         arr[j] = arr[j - gap];
+        j -= gap;
       }
       arr[j] = temp;
     }
+  }
+}
+
+void RysevMShellSortMPI::MergeBlocks(const std::vector<int> &block_sizes, const std::vector<int> &blocks_data,
+                                     const std::vector<int> &offsets, int total_elements) {
+  merged_result_.clear();
+  merged_result_.reserve(total_elements);
+
+  std::vector<int> current_pos(num_procs_, 0);
+
+  for (int k = 0; k < total_elements; ++k) {
+    int best_proc = -1;
+    int best_value = std::numeric_limits<int>::max();
+
+    for (int proc = 0; proc < num_procs_; ++proc) {
+      if (current_pos[proc] < block_sizes[proc]) {
+        int value = blocks_data[offsets[proc] + current_pos[proc]];
+        if (best_proc == -1 || value < best_value) {
+          best_value = value;
+          best_proc = proc;
+        }
+      }
+    }
+
+    merged_result_.push_back(best_value);
+    ++current_pos[best_proc];
   }
 }
 
@@ -47,7 +74,7 @@ bool RysevMShellSortMPI::RunImpl() {
 
   if (rank_ == 0) {
     const auto &input_ref = GetInput();
-    data_size = input_ref.size();
+    data_size = static_cast<int>(input_ref.size());
     if (data_size > 0) {
       input_data.assign(input_ref.begin(), input_ref.end());
     }
@@ -62,11 +89,11 @@ bool RysevMShellSortMPI::RunImpl() {
   std::vector<int> displs(num_procs_, 0);
 
   if (rank_ == 0) {
-    int base_size = data_size / num_procs_;
+    int base = data_size / num_procs_;
     int remainder = data_size % num_procs_;
     int offset = 0;
     for (int i = 0; i < num_procs_; ++i) {
-      send_counts[i] = base_size + (i < remainder ? 1 : 0);
+      send_counts[i] = base + (i < remainder ? 1 : 0);
       displs[i] = offset;
       offset += send_counts[i];
     }
@@ -76,32 +103,16 @@ bool RysevMShellSortMPI::RunImpl() {
   MPI_Bcast(displs.data(), num_procs_, MPI_INT, 0, MPI_COMM_WORLD);
 
   int local_size = send_counts[rank_];
-  local_data_.clear();
+  local_block_.clear();
   if (local_size > 0) {
-    local_data_.resize(local_size);
+    local_block_.resize(local_size);
   }
 
   MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT,
-               local_size > 0 ? local_data_.data() : nullptr, local_size, MPI_INT, 0, MPI_COMM_WORLD);
+               local_block_.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_size > 0) {
-    ShellSort(local_data_);
-  }
-
-  std::vector<int> recv_counts(num_procs_, 0);
-  MPI_Gather(&local_size, 1, MPI_INT, recv_counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  std::vector<int> recv_displs(num_procs_, 0);
-  if (rank_ == 0) {
-    int offset = 0;
-    for (int i = 0; i < num_procs_; ++i) {
-      recv_displs[i] = offset;
-      offset += recv_counts[i];
-    }
-
-    if (offset != data_size) {
-      return false;
-    }
+    ShellSort(local_block_);
   }
 
   std::vector<int> gathered_data;
@@ -109,48 +120,23 @@ bool RysevMShellSortMPI::RunImpl() {
     gathered_data.resize(data_size);
   }
 
-  MPI_Gatherv(local_size > 0 ? local_data_.data() : nullptr, local_size, MPI_INT,
-              rank_ == 0 ? gathered_data.data() : nullptr, recv_counts.data(), recv_displs.data(), MPI_INT, 0,
-              MPI_COMM_WORLD);
+  MPI_Gatherv(local_block_.data(), local_size, MPI_INT, rank_ == 0 ? gathered_data.data() : nullptr, send_counts.data(),
+              displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
   if (rank_ == 0 && data_size > 0) {
-    std::vector<int> result;
-    result.reserve(data_size);
+    MergeBlocks(send_counts, gathered_data, displs, data_size);
+    GetOutput() = merged_result_;
+  }
 
-    std::vector<int> indices(num_procs_, 0);
-
-    while (true) {
-      int min_val = std::numeric_limits<int>::max();
-      int min_idx = -1;
-
-      for (int i = 0; i < num_procs_; ++i) {
-        if (indices[i] < recv_counts[i]) {
-          int val = gathered_data[recv_displs[i] + indices[i]];
-          if (val < min_val) {
-            min_val = val;
-            min_idx = i;
-          }
-        }
-      }
-
-      if (min_idx == -1) {
-        break;
-      }
-
-      result.push_back(min_val);
-      indices[min_idx]++;
-    }
-
-    GetOutput() = std::move(result);
+  MPI_Bcast(merged_result_.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
+  if (rank_ != 0) {
+    GetOutput() = merged_result_;
   }
 
   return true;
 }
 
 bool RysevMShellSortMPI::PostProcessingImpl() {
-  if (rank_ == 0) {
-    return !GetOutput().empty();
-  }
   return true;
 }
 
