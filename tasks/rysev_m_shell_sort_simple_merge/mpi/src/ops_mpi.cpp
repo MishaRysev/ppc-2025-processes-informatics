@@ -8,6 +8,8 @@
 
 namespace rysev_m_shell_sort_simple_merge {
 
+static int dummy_buffer = 0;
+
 RysevMShellSortMPI::RysevMShellSortMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -109,7 +111,7 @@ bool RysevMShellSortMPI::RunImpl() {
   }
 
   MPI_Scatterv(rank_ == 0 ? input_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT,
-               local_block_.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
+               local_size > 0 ? local_block_.data() : &dummy_buffer, local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (local_size > 0) {
     ShellSort(local_block_);
@@ -120,16 +122,12 @@ bool RysevMShellSortMPI::RunImpl() {
     gathered_data.resize(data_size);
   }
 
-  MPI_Gatherv(local_block_.data(), local_size, MPI_INT, rank_ == 0 ? gathered_data.data() : nullptr, send_counts.data(),
-              displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Gatherv(local_size > 0 ? local_block_.data() : &dummy_buffer, local_size, MPI_INT,
+              rank_ == 0 ? gathered_data.data() : nullptr, send_counts.data(), displs.data(), MPI_INT, 0,
+              MPI_COMM_WORLD);
 
   if (rank_ == 0 && data_size > 0) {
     MergeBlocks(send_counts, gathered_data, displs, data_size);
-    GetOutput() = merged_result_;
-  }
-
-  MPI_Bcast(merged_result_.data(), data_size, MPI_INT, 0, MPI_COMM_WORLD);
-  if (rank_ != 0) {
     GetOutput() = merged_result_;
   }
 
