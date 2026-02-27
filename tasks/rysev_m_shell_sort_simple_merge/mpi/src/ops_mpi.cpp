@@ -18,12 +18,12 @@ bool RysevMShellSortMPI::ValidationImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
 
-  bool is_valid = true;
+  int is_valid_int = 1;
   if (rank_ == 0) {
-    is_valid = !GetInput().empty();
+    is_valid_int = GetInput().empty() ? 0 : 1;
   }
-  MPI_Bcast(&is_valid, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
-  return is_valid;
+  MPI_Bcast(&is_valid_int, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  return is_valid_int != 0;
 }
 
 bool RysevMShellSortMPI::PreProcessingImpl() {
