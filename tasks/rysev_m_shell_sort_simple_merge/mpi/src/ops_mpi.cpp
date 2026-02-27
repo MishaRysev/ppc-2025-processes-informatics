@@ -100,7 +100,6 @@ bool RysevMShellSortMPI::RunImpl() {
     }
 
     if (offset != data_size) {
-      MPI_Abort(MPI_COMM_WORLD, 1);
       return false;
     }
   }
@@ -111,8 +110,8 @@ bool RysevMShellSortMPI::RunImpl() {
   }
 
   MPI_Gatherv(local_size > 0 ? local_data_.data() : nullptr, local_size, MPI_INT,
-              rank_ == 0 ? gathered_data.data() : nullptr, rank_ == 0 ? recv_counts.data() : nullptr,
-              rank_ == 0 ? recv_displs.data() : nullptr, MPI_INT, 0, MPI_COMM_WORLD);
+              rank_ == 0 ? gathered_data.data() : nullptr, recv_counts.data(), recv_displs.data(), MPI_INT, 0,
+              MPI_COMM_WORLD);
 
   if (rank_ == 0 && data_size > 0) {
     std::vector<int> result;
@@ -145,7 +144,6 @@ bool RysevMShellSortMPI::RunImpl() {
     GetOutput() = std::move(result);
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
   return true;
 }
 
