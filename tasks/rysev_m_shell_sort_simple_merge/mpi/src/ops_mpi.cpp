@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <queue>
 #include <vector>
 
 namespace rysev_m_shell_sort_simple_merge {
@@ -25,8 +26,6 @@ bool RysevMShellSortMPI::ValidationImpl() {
 }
 
 bool RysevMShellSortMPI::PreProcessingImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
   return true;
 }
 
@@ -44,42 +43,6 @@ void RysevMShellSortMPI::ShellSort(std::vector<int> &arr) {
   }
 }
 
-std::vector<int> RysevMShellSortMPI::MergeSortedArrays(const std::vector<std::vector<int>> &sorted_chunks) {
-  if (sorted_chunks.empty()) {
-    return std::vector<int>();
-  }
-
-  std::vector<int> result;
-  size_t total_size = 0;
-  for (const auto &chunk : sorted_chunks) {
-    total_size += chunk.size();
-  }
-  result.reserve(total_size);
-
-  std::vector<size_t> indices(sorted_chunks.size(), 0);
-
-  while (true) {
-    int min_val = std::numeric_limits<int>::max();
-    int min_idx = -1;
-
-    for (size_t i = 0; i < sorted_chunks.size(); ++i) {
-      if (indices[i] < sorted_chunks[i].size() && sorted_chunks[i][indices[i]] < min_val) {
-        min_val = sorted_chunks[i][indices[i]];
-        min_idx = i;
-      }
-    }
-
-    if (min_idx == -1) {
-      break;
-    }
-
-    result.push_back(min_val);
-    indices[min_idx]++;
-  }
-
-  return result;
-}
-
 bool RysevMShellSortMPI::RunImpl() {
   int data_size = 0;
   std::vector<int> input_data;
@@ -87,17 +50,12 @@ bool RysevMShellSortMPI::RunImpl() {
   if (rank_ == 0) {
     const auto &input_ref = GetInput();
     data_size = input_ref.size();
-
     if (data_size > 0) {
-      input_data.reserve(data_size);
-      for (int i = 0; i < data_size; ++i) {
-        input_data.push_back(input_ref[i]);
-      }
+      input_data.assign(input_ref.begin(), input_ref.end());
     }
   }
 
   MPI_Bcast(&data_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
   if (data_size == 0) {
     return false;
   }
@@ -107,7 +65,6 @@ bool RysevMShellSortMPI::RunImpl() {
 
   int base_size = data_size / num_procs_;
   int remainder = data_size % num_procs_;
-
   int offset = 0;
   for (int i = 0; i < num_procs_; ++i) {
     send_counts[i] = base_size + (i < remainder ? 1 : 0);
@@ -116,7 +73,6 @@ bool RysevMShellSortMPI::RunImpl() {
   }
 
   int local_size = send_counts[rank_];
-
   local_data_.clear();
   if (local_size > 0) {
     local_data_.resize(local_size);
@@ -150,32 +106,42 @@ bool RysevMShellSortMPI::RunImpl() {
               rank_ == 0 ? gathered_data.data() : nullptr, recv_counts.data(), recv_displs.data(), MPI_INT, 0,
               MPI_COMM_WORLD);
 
-  // Финальное слияние на процессе 0
-  if (rank_ == 0) {
-    if (data_size > 0 && !gathered_data.empty()) {
-      std::vector<std::vector<int>> chunks;
-      chunks.reserve(num_procs_);
+  if (rank_ == 0 && data_size > 0) {
+    struct HeapNode {
+      int value;
+      int chunk_idx;
+      size_t elem_idx;
 
-      for (int i = 0; i < num_procs_; ++i) {
-        if (recv_counts[i] > 0) {
-          std::vector<int> chunk;
-          chunk.reserve(recv_counts[i]);
-          for (int j = 0; j < recv_counts[i]; ++j) {
-            chunk.push_back(gathered_data[recv_displs[i] + j]);
-          }
-          chunks.push_back(std::move(chunk));
-        }
+      bool operator>(const HeapNode &other) const {
+        return value > other.value;
       }
+    };
 
-      if (!chunks.empty()) {
-        std::vector<int> result = MergeSortedArrays(chunks);
-        GetOutput().clear();
-        GetOutput().reserve(result.size());
-        for (size_t i = 0; i < result.size(); ++i) {
-          GetOutput().push_back(result[i]);
-        }
+    std::priority_queue<HeapNode, std::vector<HeapNode>, std::greater<HeapNode>> min_heap;
+
+    for (int i = 0; i < num_procs_; ++i) {
+      if (recv_counts[i] > 0) {
+        int first_val = gathered_data[recv_displs[i]];
+        min_heap.push({first_val, i, 0});
       }
     }
+
+    std::vector<int> result;
+    result.reserve(data_size);
+
+    while (!min_heap.empty()) {
+      HeapNode node = min_heap.top();
+      min_heap.pop();
+      result.push_back(node.value);
+
+      size_t next_idx = node.elem_idx + 1;
+      if (next_idx < static_cast<size_t>(recv_counts[node.chunk_idx])) {
+        int next_val = gathered_data[recv_displs[node.chunk_idx] + next_idx];
+        min_heap.push({next_val, node.chunk_idx, next_idx});
+      }
+    }
+
+    GetOutput() = std::move(result);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
