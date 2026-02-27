@@ -21,12 +21,10 @@ class RysevMShellSortMPI : public BaseTask {
   bool PostProcessingImpl() override;
 
   void ShellSort(std::vector<int> &arr);
-  std::vector<int> MergeSortedArrays(const std::vector<std::vector<int>> &sorted_chunks);
 
   int rank_;
   int num_procs_;
   std::vector<int> local_data_;
-  std::vector<int> sorted_data_;
 };
 
 }  // namespace rysev_m_shell_sort_simple_merge
