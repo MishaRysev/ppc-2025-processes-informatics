@@ -17,10 +17,13 @@ RysevMShellSortMPI::RysevMShellSortMPI(const InType &in) {
 bool RysevMShellSortMPI::ValidationImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
+
+  bool is_valid = true;
   if (rank_ == 0) {
-    return !GetInput().empty();
+    is_valid = !GetInput().empty();
   }
-  return true;
+  MPI_Bcast(&is_valid, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+  return is_valid;
 }
 
 bool RysevMShellSortMPI::PreProcessingImpl() {
@@ -55,8 +58,12 @@ bool RysevMShellSortMPI::RunImpl() {
   }
 
   MPI_Bcast(&data_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
   if (data_size == 0) {
-    return false;
+    if (rank_ == 0) {
+      GetOutput() = std::vector<int>();
+    }
+    return true;
   }
 
   std::vector<int> send_counts(num_procs_, 0);
@@ -107,12 +114,19 @@ bool RysevMShellSortMPI::RunImpl() {
 
     for (int k = 0; k < data_size; ++k) {
       int best_proc = -1;
-      int best_val = std::numeric_limits<int>::max();
-
+      int best_val = 0;
       for (int i = 0; i < num_procs_; ++i) {
         if (indices[i] < send_counts[i]) {
+          best_proc = i;
+          best_val = gathered_data[displs[i] + indices[i]];
+          break;
+        }
+      }
+
+      for (int i = best_proc + 1; i < num_procs_; ++i) {
+        if (indices[i] < send_counts[i]) {
           int val = gathered_data[displs[i] + indices[i]];
-          if (best_proc == -1 || val < best_val) {
+          if (val < best_val) {
             best_val = val;
             best_proc = i;
           }

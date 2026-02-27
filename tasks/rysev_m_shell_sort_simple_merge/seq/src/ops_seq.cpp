@@ -12,7 +12,7 @@ RysevShellSortSEQ::RysevShellSortSEQ(const InType &in) {
 }
 
 bool RysevShellSortSEQ::ValidationImpl() {
-  return !GetInput().empty();
+  return true;
 }
 
 bool RysevShellSortSEQ::PreProcessingImpl() {
@@ -21,7 +21,7 @@ bool RysevShellSortSEQ::PreProcessingImpl() {
 }
 
 void RysevShellSortSEQ::ShellSort(std::vector<int> &arr) {
-  int n = arr.size();
+  int n = static_cast<int>(arr.size());
   for (int gap = n / 2; gap > 0; gap /= 2) {
     for (int i = gap; i < n; ++i) {
       int temp = arr[i];
@@ -38,7 +38,8 @@ bool RysevShellSortSEQ::RunImpl() {
   const auto &input = GetInput();
 
   if (input.empty()) {
-    return false;
+    GetOutput() = std::vector<int>();
+    return true;
   }
 
   std::vector<int> arr;
@@ -51,7 +52,7 @@ bool RysevShellSortSEQ::RunImpl() {
 }
 
 bool RysevShellSortSEQ::PostProcessingImpl() {
-  return !GetOutput().empty();
+  return !GetOutput().empty() || GetInput().empty();
 }
 
 }  // namespace rysev_m_shell_sort_simple_merge
