@@ -26,8 +26,7 @@ class RysevMShellSortFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int size = std::get<0>(params);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(42 + size);
     std::uniform_int_distribution<> dis(1, 1000);
 
     input_data_.resize(size);
